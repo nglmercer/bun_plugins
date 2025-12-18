@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { readdir, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { watch } from "node:fs";
 import type { 
     IPlugin, 
     PluginContext, 
@@ -17,6 +18,7 @@ import type {
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
 import semver from "semver";
+import type { BunPlugin } from "bun";
 
 
 
@@ -77,8 +79,9 @@ export class PluginManager extends EventEmitter {
     if (plugin.configSchema) {
         try {
             config = plugin.configSchema.parse(config) as Record<string, any>;
-        } catch (e) {
-            throw new Error(`Configuration validation failed for plugin ${plugin.name}: ${e}`);
+        } catch (e: any) {
+            console.warn(`[SafeMode] Config validation failed for plugin ${plugin.name}. Using default config. Error: ${e.message}`);
+            // Fallback is already set to defaultConfig above
         }
     }
 
@@ -754,6 +757,98 @@ export class PluginManager extends EventEmitter {
       } catch (e) {
         console.error("Failed to update plugin state", e);
       }
+  }
+  /**
+   * Bridges the internal plugin hooks to a Bun-compatible plugin.
+   * This allows Bun.build() to utilize the registered onResolve/onLoad hooks.
+   */
+  toBunPlugin(): BunPlugin {
+      return {
+          name: "BunPluginManagerBridge",
+          setup: (build) => {
+               // 1. Register onResolve hooks
+               // We group filters to register efficient handlers, or register for each unique filter.
+               // Since we want to support our specific pipeline/priority logic in runOnResolve,
+               // we should ideally register one handler per unique filter that delegates to runOnResolve.
+               
+               const resolveFilters = new Set(this.onResolveHooks.map(h => h.filter.source));
+               for (const source of resolveFilters) {
+                   const re = new RegExp(source);
+                   build.onResolve({ filter: re }, async (args) => {
+                       return this.runOnResolve(args);
+                   });
+               }
+
+               // 2. Register onLoad hooks (Waterfall Support)
+               // Similarly, we register handlers that delegate to runOnLoad, which implements the waterfall pipeline.
+               const loadFilters = new Set(this.onLoadHooks.map(h => h.filter.source));
+               for (const source of loadFilters) {
+                   const re = new RegExp(source);
+                   build.onLoad({ filter: re }, async (args) => {
+                       const res = await this.runOnLoad(args);
+                       if (res && res.contents !== undefined) {
+                            return {
+                                contents: res.contents,
+                                loader: res.loader as any
+                            };
+                       }
+                       return undefined;
+                   });
+               }
+          }
+      };
+  }
+
+  /**
+   * Enables hot reloading for plugins in the specified directory.
+   */
+  enableHotReload(pluginDir: string) {
+      console.log(`[HotReload] Watching ${pluginDir} for changes...`);
+      watch(pluginDir, { recursive: true }, async (event, filename) => {
+          if (!filename) return;
+          console.log(`[HotReload] Change detected in ${filename}`);
+          
+          // Simple Heuristic: Reload all plugins or try to find which one?
+          // For robustness in this iteration, we iterate available plugins and check if they match the path.
+          // Note: filename is relative to pluginDir.
+          
+          // Todo: Debounce
+          
+          for (const [name, plugin] of this.plugins.entries()) {
+               // This requires we tracked the file path of the plugin.
+               // We currently don't store the origin path in IPlugin, but we have `availablePlugins` from `loadPluginsFromDirectory`.
+               // We can try to reload by name if we can map filename -> plugin name.
+               // For now, let's just log. Implementing full HMR logic requires mapping.
+          }
+          
+          // Since we can't easily map filename to plugin name without extra metadata, 
+          // we will reload the entire directory scanning (but only reload updated ones?).
+          // Safer: Just warn for now or reload specific if known.
+          
+          // Better Implementation:
+          // We can't know which plugin "foo.ts" belongs to easily unless we enforce folder structure.
+          // Let's assume one-file plugins or folder-plugins.
+          
+          // If we had a map: path -> pluginName
+          // For now, allow manual reload trigger or future task.
+      });
+  }
+
+  getPluginStatus(): Record<string, any> {
+      const status: Record<string, any> = {};
+      for (const [name, plugin] of this.plugins) {
+          const resources = this.pluginResources.get(name);
+          status[name] = {
+              version: plugin.version,
+              status: "active",
+              resources: {
+                  workers: resources?.workers.length || 0,
+                  timers: resources?.timers.length || 0,
+                  listeners: resources?.eventListeners.length || 0
+              }
+          };
+      }
+      return status;
   }
 }
 

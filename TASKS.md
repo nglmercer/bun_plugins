@@ -92,14 +92,14 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
 ### Medium Priority (Features)
 
-4. **Global Event Bus (Pub/Sub)**:
+1. **Global Event Bus (Pub/Sub)**:
 
    - Implement `emit` / `on` in `PluginManager` and expose strictly namespaced versions in `PluginContext`.
    - Events: `plugin:loaded`, `plugin:unloaded`, `app:ready`.
 
-5. **SemVer Dependency Resolution**:
+2. **SemVer Dependency Resolution**:
 
    - Improve the current simple version check to use a full SAT solver or more robust `semver` logic if complex dependency trees arise (currently simple DAG + `semver.satisfies`).
 
-6. **Hot Reloading**:
+3. **Hot Reloading**:
    - Implement a file watcher on the `plugins/` directory to automatically call `reloadPlugin(name)` on change.

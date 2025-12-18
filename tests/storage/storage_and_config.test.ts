@@ -49,7 +49,7 @@ describe("Plugin Storage & Configuration", () => {
     expect(capturedConfig.retries).toBe(3); // Default value from schema
   });
 
-  it("should fail registration on invalid config", async () => {
+  it("should not fail registration on invalid config (Safe Mode)", async () => {
      const manager = new PluginManager(TEST_STORAGE_DIR);
      const badPlugin = { 
          ...ConfigPlugin, 
@@ -57,8 +57,8 @@ describe("Plugin Storage & Configuration", () => {
          defaultConfig: { enabled: "not-a-boolean" } 
      };
 
-     // @ts-ignore
-     expect(manager.register(badPlugin)).rejects.toThrow(/Configuration validation failed/);
+     // In Safe Mode, this should warn but NOT throw
+     await expect(manager.register(badPlugin)).resolves.toBeUndefined();
   });
 
   it("should persist storage across reloads", async () => {
