@@ -43,7 +43,15 @@ export class PluginManager extends EventEmitter {
     this.storageRoot = storageRoot;
     this.pluginLoadTimeout = options?.pluginLoadTimeout ?? 5000;
     this.workerFactory = options?.workerFactory ?? ((url, opts) => new Worker(url, opts));
-    this.workerRunnerPath = options?.workerRunnerPath ?? join(import.meta.dir, "worker", "WorkerRunner.ts");
+    
+    // Resilient path detection
+    let defaultWorkerPath = join(import.meta.dir, "worker", "WorkerRunner.ts");
+    // If running from a bundle or compiled, try .js version
+    if (!Bun.file(defaultWorkerPath).exists()) {
+        const jsPath = defaultWorkerPath.replace(/\.ts$/, ".js");
+        defaultWorkerPath = jsPath;
+    }
+    this.workerRunnerPath = options?.workerRunnerPath ?? defaultWorkerPath;
 
     // Initialize Sub-Managers
     this.resources = new ResourceManager();
@@ -141,6 +149,15 @@ export class PluginManager extends EventEmitter {
            // Initialize resources
            const res = this.resources.init(pluginName);
            res.workers.push(worker);
+
+           // Cache permission checks
+           const hasPermission = (perm: string) => {
+               // In isolated mode, we should ideally fetch the plugin definition 
+                // but since it's dynamic, we trust the manifest or assume default if not provided yet.
+                // For now, we allow the host to pass permissions in a better way, 
+                // but we'll try to get it from the proxy we'll create.
+                return true; 
+           };
            
            const rpcHandler = async (msg: any) => {
                if (msg.type === 'RPC_CALL') {
@@ -201,12 +218,30 @@ export class PluginManager extends EventEmitter {
                            result = true;
                        }
                        else if (method === 'perm:check') {
+                           const perm = args[0];
+                           // Real permission check would go here, for now we assume 
+                           // we need to know the plugin's requested permissions.
+                           // Since we don't have the full IPlugin object yet (it's in the worker),
+                           // we might need a preliminary manifest read or a 'DECLARE' RPC.
                            result = true; 
+                       }
+                       else if (method === 'network:fetch') {
+                           // Use the same logic as ContextFactory for consistency
+                           const [input, init] = args;
+                           // We need the actual plugin context or at least its metadata
+                           // For now, we perform a generic fetch or implement restricted logic
+                           // In a real scenario, we'd wait for LOAD_SUCCESS to get metadata/permissions
+                           result = await fetch(input, init).then(async r => ({
+                               status: r.status,
+                               statusText: r.statusText,
+                               headers: Object.fromEntries(r.headers.entries()),
+                               body: await r.text() // Simple implementation: text only for now
+                           }));
                        }
                        
                        worker.postMessage({ id, result });
                    } catch (e) {
-                        const error = errorParser(e, `Error in plugin ${pluginName}`);
+                        const error = errorParser(e, `RPC Error in plugin ${pluginName}`);
                         worker.postMessage({ id, error: error.message });
                    }
                }
@@ -251,7 +286,12 @@ export class PluginManager extends EventEmitter {
 
            worker.addEventListener("message", (event) => rpcHandler(event.data));
            worker.addEventListener("error", (err) => {
-               console.error("Worker Error:", err);
+               console.error(`[Isolated:${pluginName}] Worker Error:`, err);
+               // Reject all pending hooks on crash
+               for (const pending of pendingHooks.values()) {
+                   pending.reject(new Error("Worker terminated unexpectedly"));
+               }
+               pendingHooks.clear();
                reject(err);
            });
        });

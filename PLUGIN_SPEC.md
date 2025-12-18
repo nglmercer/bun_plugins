@@ -24,6 +24,7 @@ Each plugin MUST adhere to the `IPlugin` interface.
 ### Lifecycle Methods
 
 - **`onLoad(context: PluginContext)`**: Called when the plugin is activated.
+- **`onStarted()`** (Optional): Called after all plugins in a batch have been loaded. Useful for cross-plugin initialization once dependencies are guaranteed to be ready.
 - **`onUnload()`**: Called when the plugin is deactivated or the app shuts down.
 
 ### Dependencies
@@ -38,7 +39,9 @@ To ensure proper functionality and load order:
 
 Plugins must explicitly request capabilities.
 
-- **`permissions`**: A list of required permissions (e.g., `network`, `filesystem`, `env`).
+- **`permissions`**: A list of required permissions (`network`, `filesystem`, `env`).
+- **`allowedDomains`**: (Optional) A list of specific hostnames allowed for `network.fetch`.
+- **`engines`**: (Optional) Specifies host version requirements (e.g. `{ "host": "^1.0.0" }`).
 - **Isolation Strategy**:
   - **Level 1 (Current)**: Cooperative isolation. Plugins run in main process. API access is gated by wrappers (e.g. `context.network.fetch`).
   - **Level 2 (Planned)**: Process isolation. Plugins run in separate `Bun.Worker` threads. `onLoad` and hooks execute remotely.
@@ -138,19 +141,27 @@ interface IPlugin {
   name: string;
   version: string;
   description?: string;
+  author?: string;
 
   // Configuration
   configSchema?: z.ZodSchema;
   defaultConfig?: Record<string, any>;
+
+  // Host requirements
+  engines?: {
+    host?: string;
+  };
 
   // Dependencies
   dependencies?: Record<string, string>; // { "auth-plugin": "^1.2.0" }
 
   // Permissions (Security)
   permissions?: ("network" | "filesystem" | "env")[];
+  allowedDomains?: string[];
 
   // Lifecycle
   onLoad(context: PluginContext): void | Promise<void>;
+  onStarted?(): void | Promise<void>;
   onUnload(): void | Promise<void>;
 
   // System Configuration Hook (Bun/esbuild style)
@@ -189,8 +200,16 @@ interface PluginContext {
 
 // Placeholder for Builder interface
 interface PluginBuilder {
-  onResolve(filter: RegExp, callback: (args: any) => any): void;
-  onLoad(filter: RegExp, callback: (args: any) => any): void;
+  onResolve(
+    filter: RegExp,
+    callback: (args: any) => any,
+    options?: { order?: "pre" | "post" }
+  ): void;
+  onLoad(
+    filter: RegExp,
+    callback: (args: any) => any,
+    options?: { order?: "pre" | "post" }
+  ): void;
 }
 ```
 

@@ -112,28 +112,21 @@ export class HooksManager {
         return {
             name: "BunPluginManagerBridge",
             setup: (build) => {
-                 const resolveFilters = new Set(this.onResolveHooks.map(h => h.filter.source));
-                 for (const source of resolveFilters) {
-                     const re = new RegExp(source);
-                     build.onResolve({ filter: re }, async (args) => {
-                         return this.runOnResolve(args);
-                     });
-                 }
+                 // Use a catch-all filter to allow dynamic hook registration
+                 build.onResolve({ filter: /.*/ }, async (args) => {
+                     return this.runOnResolve(args);
+                 });
   
-                 const loadFilters = new Set(this.onLoadHooks.map(h => h.filter.source));
-                 for (const source of loadFilters) {
-                     const re = new RegExp(source);
-                     build.onLoad({ filter: re }, async (args) => {
-                         const res = await this.runOnLoad(args);
-                         if (res && res.contents !== undefined) {
-                              return {
-                                  contents: res.contents,
-                                  loader: res.loader as any
-                              };
-                         }
-                         return undefined;
-                     });
-                 }
+                 build.onLoad({ filter: /.*/ }, async (args) => {
+                     const res = await this.runOnLoad(args);
+                     if (res && res.contents !== undefined) {
+                          return {
+                              contents: res.contents,
+                              loader: res.loader as any
+                          };
+                     }
+                     return undefined;
+                 });
             }
         };
     }

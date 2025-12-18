@@ -91,4 +91,4 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
    - Create a simple CLI or template to bootstrap new plugins with the correct structure and types.
 
 2. **Documentation Polish**:
-   - Sync `PLUGIN_SPEC.md` with implementation details (Storage paths, Hook behaviors).
+   - [x] Sync `PLUGIN_SPEC.md` with implementation details (Storage paths, Hook behaviors, newer fields).

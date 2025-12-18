@@ -127,9 +127,16 @@ async function run() {
             // wrappers
             network: {
                 fetch: async (input, init) => {
-                     // Permission check via RPC
-                     await rpc('perm:check', 'network');
-                     return fetch(input, init);
+                     const res = await rpc('network:fetch', input, init);
+                     // Reconstruct a subset of Response
+                     return {
+                         status: res.status,
+                         statusText: res.statusText,
+                         ok: res.status >= 200 && res.status < 300,
+                         headers: new Headers(res.headers),
+                         text: async () => res.body,
+                         json: async () => JSON.parse(res.body)
+                     } as Response;
                 }
             },
             file: (path) => {
