@@ -53,11 +53,28 @@ export function createPluginContext(
             const workerFactory = manager.getWorkerFactory();
             const w = workerFactory(url, options);
             
+            // Auto-cleanup when worker closes
             w.addEventListener?.("close", () => {
-               // Cleanup from resources if closed manually? 
-               // For now just removing from array is hard without id.
-               // We just track it for shutdown.
+               const res = resources.get(plugin.name);
+               if (res) {
+                   const index = res.workers.indexOf(w);
+                   if (index > -1) {
+                       res.workers.splice(index, 1);
+                   }
+               }
             });
+            
+            // Also listen for exit event (Bun specific)
+            w.addEventListener?.("exit", () => {
+               const res = resources.get(plugin.name);
+               if (res) {
+                   const index = res.workers.indexOf(w);
+                   if (index > -1) {
+                       res.workers.splice(index, 1);
+                   }
+               }
+            });
+            
             w.addEventListener?.("error", (err: ErrorEvent) => {
                 console.error(`[${plugin.name}] Worker error:`, err.message); 
             });
