@@ -55,9 +55,13 @@ export class PluginManager extends EventEmitter {
 
     // 0. Dependency & Engine Check
     if (plugin.dependencies) {
-        for (const [depName, version] of Object.entries(plugin.dependencies)) {
-            if (!this.plugins.has(depName)) {
-                throw new Error(`Plugin ${plugin.name} requires missing dependency: ${depName} (${version})`);
+        for (const [depName, requiredVersion] of Object.entries(plugin.dependencies)) {
+            const depPlugin = this.plugins.get(depName);
+            if (!depPlugin) {
+                throw new Error(`Plugin ${plugin.name} requires missing dependency: ${depName} (${requiredVersion})`);
+            }
+            if (!semver.satisfies(depPlugin.version, requiredVersion)) {
+                throw new Error(`Plugin ${plugin.name} requires dependency ${depName} version ${requiredVersion}, but found ${depPlugin.version}`);
             }
         }
     }
@@ -199,10 +203,12 @@ export class PluginManager extends EventEmitter {
         setTimeout(() => reject(new Error(`Plugin ${plugin.name} timed out (${this.pluginLoadTimeout}ms)`)), this.pluginLoadTimeout)
       );
       
+      const start = performance.now();
       await Promise.race([plugin.onLoad(context), timeoutPromise]);
+      const duration = performance.now() - start;
 
       this.plugins.set(plugin.name, plugin);
-      console.log(`Plugin ${plugin.name} loaded successfully.`);
+      console.log(`Plugin ${plugin.name} loaded successfully in ${duration.toFixed(2)}ms.`);
     } catch (error) {
       console.error(`Failed to load plugin ${plugin.name}:`, error);
       this.cleanupResources(plugin.name);
@@ -322,6 +328,8 @@ export class PluginManager extends EventEmitter {
               const validation = validatePlugin(ExportedItem);
               if (validation.valid) {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
+              } else {
+                 console.warn(`Skipping invalid plugin in ${file}: ${validation.error}`);
               }
             }
           } catch (err) {
