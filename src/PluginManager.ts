@@ -272,7 +272,12 @@ export class PluginManager extends EventEmitter {
                        onStarted: () => {
                            worker.postMessage({ type: 'START_UP' });
                        },
-                       onUnload: () => worker.terminate(),
+                       onUnload: async () => {
+                           worker.postMessage({ type: 'UNLOAD' });
+                           // Give the worker some time to clean up
+                           await new Promise(r => setTimeout(r, 200));
+                           worker.terminate();
+                       },
                    };
                    this.plugins.set(metadata.name, proxyPlugin);
                    console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);

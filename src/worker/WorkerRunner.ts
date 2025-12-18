@@ -33,6 +33,8 @@ function rpc(method: string, ...args: any[]): Promise<any> {
 }
 
 async function run() {
+    let plugin: IPlugin | undefined = undefined;
+
     // Setup message handler for incoming requests from Main Thread
     parentPort!.on('message', async (msg: any) => {
         if (msg.type === 'HOOK_CALL') {
@@ -64,6 +66,17 @@ async function run() {
                 }
             }
         }
+        else if (msg.type === 'UNLOAD') {
+            console.log(`[Worker:${pluginName}] Received UNLOAD signal.`);
+            if (plugin && plugin.onUnload) {
+                try {
+                    await plugin.onUnload();
+                } catch (e) {
+                    console.error(`[Worker:${pluginName}] Error during onUnload:`, e);
+                }
+            }
+            process.exit(0);
+        }
     });
 
     try {
@@ -72,7 +85,6 @@ async function run() {
         // Dynamic Import of the Plugin
         const module = await import(pluginPath);
         // Find the plugin object (default export or named export compliant with IPlugin)
-        let plugin: IPlugin | undefined = undefined;
         
         if (module.default && module.default.name) plugin = module.default;
         else {
@@ -171,7 +183,7 @@ async function run() {
                          options
                      });
                  },
-                 onLoad: (filter: RegExp, callback: Function, options?: any) => {
+                onLoad: (filter: RegExp, callback: Function, options?: any) => {
                      const hookId = Math.random().toString(36).substring(7);
                      hookCallbacks.set(hookId, callback);
                      rpc('hooks:register', 'onLoad', {
@@ -202,7 +214,7 @@ async function run() {
         // Listen for START_UP signal to run onStarted
         parentPort!.on('message', async (msg: any) => {
             if (msg.type === 'START_UP') {
-                if (plugin.onStarted) {
+                if (plugin && plugin.onStarted) {
                     try {
                         await plugin.onStarted();
                     } catch (e) {

@@ -17,9 +17,9 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 ## 3. Permissions & Security
 
 - [x] **Permissions Definition** (`permissions` field) - _Implemented in types and schema_
-- [x] **Enforcement** - _Implemented via restricted `PluginContext` (network.fetch, env)_
+- [/] **Enforcement** - _Partially implemented (network, env gated in native mode, but lacks domain-level filtering in isolated mode)_
 - [x] **Path Traversal Protection** - _Implemented (plugin name validation)_
-- [x] **Isolation** - _Implemented (Bun Workers with RPC)_
+- [x] **Isolation** - _Implemented (Bun Workers with RPC and graceful cleanup)_
 
 ## 4. Storage System
 
@@ -81,7 +81,12 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
    - The path to `WorkerRunner.ts` is currently hardcoded relative to the source. This might break in distribution.
    - _Action_: Use a configurable path or bundle the worker runner.
 
-2. **Isolated Resource Leak Protection**:
+2. **Domain-based Network Filtering**:
+
+   - The `allowedDomains` field in `PLUGIN_SPEC.md` is currently ignored.
+   - _Action_: Filter `context.network.fetch` calls based on the plugin's `allowedDomains` list.
+
+3. **Isolated Resource Leak Protection**:
    - Ensure `pendingHooks` in `registerIsolated` are cleaned up on timeout/failure to avoid memory leaks.
 
 ### Medium Priority (Developer Experience)
