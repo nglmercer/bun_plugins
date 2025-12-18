@@ -123,7 +123,25 @@ export class PluginManager extends EventEmitter {
           error: (msg, ...args) => console.error(`[${plugin.name}] error: ${msg}`, ...args),
       },
       createWorker: (url, options) => {
-          const w = new Worker(url, options);
+          const w = new Worker(url, options) as any; // Cast to any to satisfy BunWorker return type if needed
+          
+          // Auto-cleanup from resources on close
+          w.addEventListener("close", () => {
+             // Remove from active resources to prevent list growing indefinitely
+             resources.workers = resources.workers.filter(worker => worker !== w);
+          });
+          
+          // Log errors to plugin logger
+          w.addEventListener("error", (err: ErrorEvent) => {
+              console.error(`[${plugin.name}] Worker error:`, err.message); 
+          });
+
+          // Forward open event for logging/debug if needed
+          w.addEventListener("open", () => {
+              // Optional debug log
+              // console.log(`[${plugin.name}] Worker started`);
+          });
+
           resources.workers.push(w);
           return w;
       },

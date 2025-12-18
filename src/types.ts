@@ -55,7 +55,7 @@ export interface PluginContext {
   log: Logger;
 
   // Worker Management
-  createWorker(url: string | URL, options?: WorkerOptions): Worker;
+  createWorker(url: string | URL, options?: BunWorkerOptions): BunWorker;
   
   // Security / Capabilities
   network: {
@@ -72,6 +72,19 @@ export interface PluginContext {
   clearTimeout: (id: number | Timer) => void;
   clearInterval: (id: number | Timer) => void;
 }
+
+export interface BunWorkerOptions extends WorkerOptions {
+    smol?: boolean;
+    preload?: string[] | string;
+    ref?: boolean;
+    env?: Record<string, string>; // Support environment data
+}
+
+export interface BunWorker extends Worker {
+    ref(): void;
+    unref(): void;
+}
+
 
 export class AccessDeniedError extends Error {
     constructor(permission: string, pluginName: string) {
