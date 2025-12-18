@@ -33,4 +33,23 @@ export class ResourceManager {
             this.resources.delete(pluginName);
         }
     }
+
+    getUsageSummary() {
+        let totalWorkers = 0;
+        let totalTimers = 0;
+        let totalListeners = 0;
+
+        for (const res of this.resources.values()) {
+            totalWorkers += res.workers.length;
+            totalTimers += res.timers.length;
+            totalListeners += res.eventListeners.length;
+        }
+
+        return {
+            totalWorkers,
+            totalTimers,
+            totalListeners,
+            pluginCount: this.resources.size
+        };
+    }
 }

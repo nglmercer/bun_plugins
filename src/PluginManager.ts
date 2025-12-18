@@ -33,12 +33,17 @@ export class PluginManager extends EventEmitter {
   private hostVersion = "1.0.0"; 
   private pluginLoadTimeout: number;
   private workerFactory: (url: string | URL, options?: WorkerOptions) => Worker;
-
-  constructor(storageRoot: string = "./storage", options?: { pluginLoadTimeout?: number, workerFactory?: (url: string | URL, options?: WorkerOptions) => Worker }) {
+  private workerRunnerPath: string;
+  constructor(storageRoot: string = "./storage", options?: { 
+    pluginLoadTimeout?: number, 
+    workerFactory?: (url: string | URL, options?: WorkerOptions) => Worker,
+    workerRunnerPath?: string 
+  }) {
     super();
     this.storageRoot = storageRoot;
     this.pluginLoadTimeout = options?.pluginLoadTimeout ?? 5000;
     this.workerFactory = options?.workerFactory ?? ((url, opts) => new Worker(url, opts));
+    this.workerRunnerPath = options?.workerRunnerPath ?? join(import.meta.dir, "worker", "WorkerRunner.ts");
 
     // Initialize Sub-Managers
     this.resources = new ResourceManager();
@@ -124,7 +129,7 @@ export class PluginManager extends EventEmitter {
 
   async registerIsolated(pluginPath: string, pluginName: string): Promise<void> {
        return new Promise((resolve, reject) => {
-           const workerScript = join(import.meta.dir, "worker", "WorkerRunner.ts");
+           const workerScript = this.workerRunnerPath;
            console.log("Worker Path:", workerScript);
            const worker = this.workerFactory(workerScript, {
                workerData: { pluginPath, pluginName }
@@ -483,6 +488,18 @@ export class PluginManager extends EventEmitter {
           // For now, loadPluginsFromDirectory will log if it skips.
           // Better: reload individual plugin if we can map filename -> plugin.
       });
+  }
+
+  getMetrics() {
+      return {
+          totalPlugins: this.plugins.size,
+          activePlugins: Array.from(this.plugins.keys()),
+          resources: this.resources.getUsageSummary(),
+          hooks: {
+              onResolve: this.hooksManager.getHookCount('onResolve'),
+              onLoad: this.hooksManager.getHookCount('onLoad')
+          }
+      };
   }
 
   getPluginStatus(): Record<string, any> {

@@ -68,38 +68,27 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
 - [x] **Runtime Isolation** - _Implemented (Plugins run in Worker threads, hooks/events proxied via RPC)_
 - [x] **Hooks Pipeline** - _Implemented (onLoad uses waterfall pipeline, onResolve matches first)_
-- [x] **Global Event Bus** - _Implemented (Bi-directional IPC between Main and Workers)_
+- [x] **Global Event Bus** - _Implemented (Namespaced `events` in `PluginContext`)_
 
 ---
 
 ## Recommended Next Tasks
 
-### High Priority (Stability & Correctness)
+### High Priority (Stability & Distribution)
 
-1. **Connect Hooks to Runtime**:
+1. **Worker Path Resilience**:
 
-   - The `PluginBuilder` interface exists, but `PluginManager.runOnResolve` / `runOnLoad` are not automatically connected to `Bun.plugin` or the application's build process.
-   - _Action_: Create a bridge function `manager.toBunPlugin()` that returns a Bun-compatible plugin object invoking the internal hooks.
+   - The path to `WorkerRunner.ts` is currently hardcoded relative to the source. This might break in distribution.
+   - _Action_: Use a configurable path or bundle the worker runner.
 
-2. **Fix "Zombie Worker" & Isolation Risks**:
+2. **Isolated Resource Leak Protection**:
+   - Ensure `pendingHooks` in `registerIsolated` are cleaned up on timeout/failure to avoid memory leaks.
 
-   - Current `onLoad` runs in the main thread. A synchronous infinite loop will freeze the host.
-   - _Action_: Refactor `onLoad` to run inside a `Bun.Worker` if strict isolation is required, or strictly document that plugins serve as "trusted middleware" (Cooperative Multitasking).
-   - _Refinement_: Ensure `manager.pluginResources` consistently tracks all resources even if `onLoad` crashes violently.
+### Medium Priority (Developer Experience)
 
-3. **Robust Config Validation**:
-   - _Action_: Implement "Safe Mode" or simple migration check. If `configSchema` fails validation on boot (due to updates), disable the plugin or load with default config, logging a critical error, instead of crashing the `PluginManager`.
+1. **Plugin CLI/Generator**:
 
-### Medium Priority (Features)
+   - Create a simple CLI or template to bootstrap new plugins with the correct structure and types.
 
-1. **Global Event Bus (Pub/Sub)**:
-
-   - Implement `emit` / `on` in `PluginManager` and expose strictly namespaced versions in `PluginContext`.
-   - Events: `plugin:loaded`, `plugin:unloaded`, `app:ready`.
-
-2. **SemVer Dependency Resolution**:
-
-   - Improve the current simple version check to use a full SAT solver or more robust `semver` logic if complex dependency trees arise (currently simple DAG + `semver.satisfies`).
-
-3. **Hot Reloading**:
-   - Implement a file watcher on the `plugins/` directory to automatically call `reloadPlugin(name)` on change.
+2. **Documentation Polish**:
+   - Sync `PLUGIN_SPEC.md` with implementation details (Storage paths, Hook behaviors).

@@ -23,6 +23,10 @@ export class HooksManager {
         this.onLoadHooks.push({ filter, callback, pluginName, order });
     }
 
+    getHookCount(type: 'onResolve' | 'onLoad'): number {
+        return type === 'onResolve' ? this.onResolveHooks.length : this.onLoadHooks.length;
+    }
+
     cleanup(pluginName: string) {
         this.onResolveHooks = this.onResolveHooks.filter(h => h.pluginName !== pluginName);
         this.onLoadHooks = this.onLoadHooks.filter(h => h.pluginName !== pluginName);
