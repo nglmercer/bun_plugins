@@ -1,6 +1,6 @@
 {
   "name": "bun_plugins",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
   "scripts": {

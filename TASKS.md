@@ -61,6 +61,11 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 - [x] **Timer Cleanup** (`setInterval`/`setTimeout` auto-clear) - _Implemented_
 - [x] **Lifecycle Management** (Auto-terminate on unload) - _Implemented_
 
+## 11. Public API & Refactoring
+
+- [x] **Centralized Exports** - _Implemented in `src/index.ts`_
+- [x] **Cleanup** - _Removed redundant `index.ts` entry points_
+
 ---
 
 ## Recommended Next Tasks

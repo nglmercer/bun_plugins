@@ -94,7 +94,7 @@ export class AccessDeniedError extends Error {
 }
 
 // Validation schema for a basic plugin structure if needed
-export const PluginSchema = z.object({
+export const BasicPluginSchema = z.object({
   name: z.string(),
   version: z.string(),
 });

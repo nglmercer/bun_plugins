@@ -171,3 +171,12 @@ Plugins may use Bun's `Worker` API to run CPU-intensive tasks in a separate thre
 - **Management**: To ensure proper resource cleanup, plugins SHOULD create workers via `context.createWorker(scriptUrl, options)`.
 - **Lifecycle**: Workers created via the context will be automatically terminated when the plugin is unloaded.
 - **Capabilities**: Full access to Bun's `Worker` features (postMessage, smol mode, etc.).
+
+## 11. Public API
+
+The package exports the following core components via `src/index.ts` to facilitate documentation generation and library usage:
+
+- **`PluginManager`**: Main class for managing the plugin lifecycle.
+- **`IPlugin`, `PluginContext`, `PluginBuilder`**: interfaces for defining plugins.
+- **`JsonPluginStorage`**: Default storage implementation.
+- **`pluginValidator`**: Utilities for validating plugin schemas.
