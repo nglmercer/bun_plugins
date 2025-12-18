@@ -1,0 +1,19 @@
+{
+  "name": "bun_plugins",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "bun test ./tests",
+    "typecheck": "bun tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "zod": "^4.2.1"
+  }
+}
