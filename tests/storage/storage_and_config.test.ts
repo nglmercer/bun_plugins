@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import { PluginManager } from "../src/PluginManager";
-import { type IPlugin, type PluginContext } from "../src/types";
+import { PluginManager } from "../../src/PluginManager";
+import { type IPlugin, type PluginContext } from "../../src/types";
 import { z } from "zod";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";

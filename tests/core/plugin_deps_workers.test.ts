@@ -1,7 +1,7 @@
 
 import { describe, it, expect, mock, spyOn, beforeAll, afterAll } from "bun:test";
-import { PluginManager } from "../src/PluginManager";
-import type { IPlugin, PluginContext } from "../src/types";
+import { PluginManager } from "../../src/PluginManager";
+import type { IPlugin, PluginContext } from "../../src/types";
 
 // Mock Worker
 class MockWorker {

@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach } from "bun:test";
-import { PluginManager } from "../src/PluginManager";
+import { PluginManager } from "../../src/PluginManager";
 import { join } from "node:path";
 import { rm, mkdir } from "node:fs/promises";
 

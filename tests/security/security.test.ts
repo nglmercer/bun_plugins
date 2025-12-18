@@ -1,7 +1,7 @@
 
 import { describe, it, expect, mock, spyOn } from "bun:test";
-import { PluginManager } from "../src/PluginManager";
-import type { IPlugin, PluginContext } from "../src/types";
+import { PluginManager } from "../../src/PluginManager";
+import type { IPlugin, PluginContext } from "../../src/types";
 
 describe("Plugin Security & Permissions", () => {
 

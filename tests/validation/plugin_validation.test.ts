@@ -1,5 +1,5 @@
 import { describe, expect, test, spyOn } from "bun:test";
-import { PluginManager } from "../src/PluginManager";
+import { PluginManager } from "../../src/PluginManager";
 import { join } from "node:path";
 
 describe("Plugin Validation & Loading", () => {

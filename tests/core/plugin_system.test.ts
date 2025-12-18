@@ -1,6 +1,6 @@
-import { describe, expect, test, mock } from "bun:test";
-import { PluginManager } from "../src/PluginManager";
-import type { IPlugin, PluginContext } from "../src/types";
+import { describe, it, expect, mock, spyOn,test } from "bun:test";
+import { PluginManager } from "../../src/PluginManager";
+import type { IPlugin, PluginContext } from "../../src/types";
 import { join } from "node:path";
 
 // Mock Plugin
