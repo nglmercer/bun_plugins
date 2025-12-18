@@ -69,8 +69,9 @@ describe("Edge Cases and Robustness", () => {
             try {
                 await manager.register(failingPlugin);
                 expect(true).toBe(false); // Should fail
-            } catch (e: any) {
-                expect(e.message).toContain("Setup exploded");
+            } catch (e: unknown) {
+                expect(e instanceof Error).toBe(true);
+                expect((e as Error).message).toContain("Setup exploded");
             }
 
             expect(manager.getPlugin("broken-setup")).toBeUndefined();
