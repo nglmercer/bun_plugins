@@ -12,8 +12,14 @@ export const PluginSchema = z.object({
   
   dependencies: z.record(z.string(), z.string()).optional(),
   permissions: z.array(z.enum(['network', 'filesystem', 'env'])).optional(),
+  allowedDomains: z.array(z.string()).optional(),
+  
+  engines: z.object({
+      host: z.string().optional(),
+  }).optional(),
   
   onLoad: z.function(),
+  onStarted: z.function().optional(),
   onUnload: z.function().optional(),
   getSharedApi: z.function().optional(),
   setup: z.function().optional(),

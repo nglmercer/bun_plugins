@@ -6,12 +6,12 @@ import type{ IPlugin, PluginBuilder, PluginContext } from "../../src/types";
 describe("PluginManager Hooks & Timeouts", () => {
     
     it("should timeout if onLoad takes too long", async () => {
-        const manager = new PluginManager("./test-storage-timeout");
+        const manager = new PluginManager("./test-storage-timeout", { pluginLoadTimeout: 500 });
         const plugin: IPlugin = {
             name: "slow-plugin",
             version: "1.0.0",
             onLoad: async () => {
-                await new Promise(resolve => setTimeout(resolve, 6000));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             },
             onUnload: () => {}
         };
@@ -26,7 +26,7 @@ describe("PluginManager Hooks & Timeouts", () => {
 
         // Verify it wasn't registered
         expect(manager.getPlugin("slow-plugin")).toBeUndefined();
-    }, 10000);
+    });
 
     it("should register and execute onResolve hooks", async () => {
         const manager = new PluginManager("./test-storage-hooks");

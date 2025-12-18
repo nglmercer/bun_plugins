@@ -15,6 +15,7 @@ import type {
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
 import { z } from "zod";
+import semver from "semver";
 
 interface PluginResource {
     workers: Worker[];
@@ -38,10 +39,13 @@ export class PluginManager extends EventEmitter {
   private onLoadHooks: HookRegistry<OnLoadCallback>[] = [];
 
   private storageRoot: string;
+  private hostVersion = "1.0.0"; // Host application version
+  private pluginLoadTimeout: number;
 
-  constructor(storageRoot: string = "./storage") {
+  constructor(storageRoot: string = "./storage", options?: { pluginLoadTimeout?: number }) {
     super();
     this.storageRoot = storageRoot;
+    this.pluginLoadTimeout = options?.pluginLoadTimeout ?? 5000;
   }
 
   async register(plugin: IPlugin): Promise<void> {
@@ -49,12 +53,18 @@ export class PluginManager extends EventEmitter {
       throw new Error(`Plugin ${plugin.name} is already registered.`);
     }
 
-    // Check dependencies
+    // 0. Dependency & Engine Check
     if (plugin.dependencies) {
         for (const [depName, version] of Object.entries(plugin.dependencies)) {
             if (!this.plugins.has(depName)) {
                 throw new Error(`Plugin ${plugin.name} requires missing dependency: ${depName} (${version})`);
             }
+        }
+    }
+
+    if (plugin.engines?.host) {
+        if (!semver.satisfies(this.hostVersion, plugin.engines.host)) {
+            throw new Error(`Plugin ${plugin.name} requires host version ${plugin.engines.host}, but found ${this.hostVersion}`);
         }
     }
 
@@ -65,7 +75,6 @@ export class PluginManager extends EventEmitter {
     
     // 2. Load & Validate Configuration
     let config = plugin.defaultConfig || {};
-    
     if (plugin.configSchema) {
         try {
             config = plugin.configSchema.parse(config) as Record<string, any>;
@@ -74,24 +83,34 @@ export class PluginManager extends EventEmitter {
         }
     }
 
-    // 3. Initialize Resources Tracking
+    // 3. Initialize Resources
     const resources: PluginResource = { workers: [] };
     this.pluginResources.set(plugin.name, resources);
 
-    const hasPermission = (perm: 'network' | 'filesystem' | 'env') => {
+    const getPermission = (perm: 'network' | 'filesystem' | 'env') => {
         return plugin.permissions?.includes(perm);
     };
 
+    const checkPermission = (perm: 'network' | 'filesystem' | 'env') => {
+        if (!getPermission(perm)) {
+            throw new Error(`AccessDenied: Plugin '${plugin.name}' requires '${perm}' permission.`);
+        }
+    };
+
+    // Context Creation
     const context: PluginContext = {
       manager: this,
-      storage: storage,
-      config: config,
-      emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => {
-        this.emit(event, payload);
+      storage,
+      config,
+      // Legacy support
+      emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => this.emit(event, payload),
+      on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => this.on(event, callback),
+      
+      events: {
+          emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => this.emit(event, payload),
+          on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => this.on(event, callback)
       },
-      on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => {
-        this.on(event, callback);
-      },
+
       getPlugin: (name: string) => {
           const p = this.plugins.get(name);
           return p?.getSharedApi ? p.getSharedApi() : undefined;
@@ -101,74 +120,92 @@ export class PluginManager extends EventEmitter {
           warn: (msg, ...args) => console.warn(`[${plugin.name}] warn: ${msg}`, ...args),
           error: (msg, ...args) => console.error(`[${plugin.name}] error: ${msg}`, ...args),
       },
-      createWorker: (url: string | URL, options?: WorkerOptions) => {
+      createWorker: (url, options) => {
           const w = new Worker(url, options);
           resources.workers.push(w);
           return w;
       },
-      // Security enforcement
       network: {
-          fetch: (start, init) => {
-              if (!hasPermission('network')) {
-                  throw new Error(`AccessDenied: Plugin '${plugin.name}' requires 'network' permission to use fetch.`);
+          fetch: (input, init) => {
+              checkPermission('network');
+              // Validate Domain Whitelist
+              if (plugin.allowedDomains) {
+                  const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+                  let url: URL | undefined;
+                  try {
+                      url = new URL(urlStr);
+                  } catch (e) {
+                      // If invalid URL, might be relative. Let fetch handle it or decide policy.
+                  }
+
+                  if (url) {
+                      const allowed = plugin.allowedDomains.some(d => url!.hostname === d || url!.hostname.endsWith('.' + d));
+                      if (!allowed) {
+                          throw new Error(`AccessDenied: Domain '${url!.hostname}' is not in allowedDomains for plugin '${plugin.name}'.`);
+                      }
+                  }
               }
-              return fetch(start, init);
+              return fetch(input, init);
           }
       },
+      file: (path: string) => {
+          checkPermission('filesystem');
+          return Bun.file(path);
+      },
       get env() {
-          if (!hasPermission('env')) {
-               // We return an empty object or throw? The spec implies blocking access. 
-               // Thowing on access to the property is cleaner validation of intent.
-               throw new Error(`AccessDenied: Plugin '${plugin.name}' requires 'env' permission to access environment variables.`);
-          }
+          checkPermission('env');
           return new Proxy(process.env, {
-              get(target, prop) {
-                  return Reflect.get(target, prop);
-              },
-              set() {
-                  throw new Error("Plugins cannot modify environment variables.");
-              }
+              get(target, prop) { return Reflect.get(target, prop); },
+              set() { throw new Error("Plugins cannot modify environment variables."); }
           });
       }
     };
 
-    // 4. Setup Hooks (if applicable)
+    // 4. Setup Hooks with Performance Monitoring
     if (plugin.setup) {
         const builder: PluginBuilder = {
             onResolve: (filter, callback) => {
-                this.onResolveHooks.push({ filter, callback, pluginName: plugin.name });
+                const perfCallback: OnResolveCallback = async (args) => {
+                    const start = performance.now();
+                    const res = await callback(args);
+                    const dur = performance.now() - start;
+                    if (dur > 100) console.warn(`[Performance] ${plugin.name} onResolve took ${dur.toFixed(2)}ms`);
+                    return res;
+                };
+                this.onResolveHooks.push({ filter, callback: perfCallback, pluginName: plugin.name });
             },
             onLoad: (filter, callback) => {
-                this.onLoadHooks.push({ filter, callback, pluginName: plugin.name });
+                 const perfCallback: OnLoadCallback = async (args) => {
+                    const start = performance.now();
+                    const res = await callback(args);
+                    const dur = performance.now() - start;
+                    if (dur > 100) console.warn(`[Performance] ${plugin.name} onLoad took ${dur.toFixed(2)}ms`);
+                    return res;
+                };
+                this.onLoadHooks.push({ filter, callback: perfCallback, pluginName: plugin.name });
             }
         };
         try {
             await plugin.setup(builder);
         } catch (e) {
-             console.error(`Error during plugin setup for ${plugin.name}:`, e);
-             throw e; // Setup failure is critical
+             console.error(`Error during setup for ${plugin.name}:`, e);
+             throw e;
         }
     }
 
-    // 5. Lifecycle onLoad with Timeout
+    // 5. Lifecycle onLoad
     try {
-      // 5s timeout
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Plugin ${plugin.name} timed out during load (5000ms limit)`)), 5000)
+        setTimeout(() => reject(new Error(`Plugin ${plugin.name} timed out (${this.pluginLoadTimeout}ms)`)), this.pluginLoadTimeout)
       );
       
-      await Promise.race([
-          plugin.onLoad(context),
-          timeoutPromise
-      ]);
+      await Promise.race([plugin.onLoad(context), timeoutPromise]);
 
       this.plugins.set(plugin.name, plugin);
       console.log(`Plugin ${plugin.name} loaded successfully.`);
     } catch (error) {
       console.error(`Failed to load plugin ${plugin.name}:`, error);
-      // Cleanup resources if load fails
       this.cleanupResources(plugin.name);
-      // Also cleanup hooks if setup ran but onLoad failed
       this.cleanupHooks(plugin.name);
       throw error;
     }
@@ -308,9 +345,42 @@ export class PluginManager extends EventEmitter {
           const sortedPlugins = this.resolveDependencyOrder(pluginsToLoad);
           
           // 5. Load plugins in order
+          const loadedPlugins: IPlugin[] = [];
           for (const plugin of sortedPlugins) {
-              if (!this.plugins.has(plugin.name)) { // Double check
-                  await this.register(plugin);
+              // Dependency Health Check
+              let dependenciesOk = true;
+              if (plugin.dependencies) {
+                  for (const dep of Object.keys(plugin.dependencies)) {
+                      if (!this.plugins.has(dep)) {
+                          console.warn(`Skipping ${plugin.name}: Dependency ${dep} failed to load or is missing.`);
+                          dependenciesOk = false;
+                          break;
+                      }
+                  }
+              }
+
+              if (!dependenciesOk) continue;
+
+              try {
+                  if (!this.plugins.has(plugin.name)) { 
+                      await this.register(plugin);
+                      loadedPlugins.push(plugin);
+                  }
+              } catch (e) {
+                   console.error(`Failed to load ${plugin.name}:`, e);
+                   // Continue to next plugin, do not allow this failure to stop others
+                   // But dependents will be skipped by the check above.
+              }
+          }
+
+          // 6. Lifecycle: onStarted (All loaded)
+          for (const plugin of loadedPlugins) {
+              if (plugin.onStarted) {
+                  try {
+                      await plugin.onStarted();
+                  } catch (e) {
+                      console.error(`Error in onStarted for ${plugin.name}:`, e);
+                  }
               }
           }
       } catch (e) {
@@ -431,6 +501,22 @@ export class PluginManager extends EventEmitter {
         } else {
              console.warn(`Plugin ${name} enabled but not found in available plugins.`);
         }
+    }
+  }
+
+  async reloadPlugin(name: string): Promise<void> {
+    const plugin = this.plugins.get(name);
+    if (plugin) {
+        console.log(`Reloading plugin ${name}...`);
+        await this.unregister(name);
+    }
+    
+    // Attempt to retrieve from available plugins
+    const definition = this.availablePlugins.get(name);
+    if (definition) {
+        await this.register(definition);
+    } else {
+        throw new Error(`Plugin ${name} not found in available plugins.`);
     }
   }
 

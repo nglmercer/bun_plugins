@@ -24,14 +24,19 @@ export interface Logger {
 }
 
 export interface PluginContext {
-  // Method to emit events to the system
+  // Legacy/Direct event methods
   emit<K extends keyof AppEvents>(event: K, payload: AppEvents[K]): void;
-  // Method to listen to events from the system
   on<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void;
   
+  // Namespaced Event Bus
+  events: {
+    emit<K extends keyof AppEvents>(event: K, payload: AppEvents[K]): void;
+    on<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void;
+  };
+
   storage: IPluginStorage;
   config: Record<string, any>;
-  manager: any; // Using any to avoid circular dependency issues in types, though interface retrieval is better
+  manager: any; 
   
   // Access to other plugins' shared APIs
   getPlugin(name: string): unknown | undefined;
@@ -46,6 +51,9 @@ export interface PluginContext {
   network: {
       fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
   };
+  // Filesystem Proxy
+  file: (path: string) => any; // Returns BunFile-like object
+
   env: Record<string, string | undefined>;
 }
 
@@ -60,8 +68,6 @@ export class AccessDeniedError extends Error {
 export const PluginSchema = z.object({
   name: z.string(),
   version: z.string(),
-  // We can't validate functions easily with Zod schema for types, 
-  // but we can check if they exist in runtime validator
 });
 
 export interface IPlugin {
@@ -70,16 +76,22 @@ export interface IPlugin {
   description?: string;
   author?: string;
   
+  engines?: {
+      host?: string; // Host application version
+  };
+
   configSchema?: z.ZodSchema;
   defaultConfig?: Record<string, any>;
 
   // Dependency Management
   dependencies?: Record<string, string>; // e.g. { "other-plugin": "^1.0.0" }
 
-  // Permissions (Placeholder for future implementation)
+  // Permissions
   permissions?: ('network' | 'filesystem' | 'env')[];
+  allowedDomains?: string[]; // Whitelist for network access
 
   onLoad(context: PluginContext): Promise<void> | void;
+  onStarted?: () => Promise<void> | void; // New Lifecycle Hook
   onUnload(): Promise<void> | void;
   
   // Method to expose a shared API to other plugins
