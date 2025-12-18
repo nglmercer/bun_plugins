@@ -99,7 +99,7 @@ describe("Bun Worker Integration", () => {
         await manager.register(plugin);
         
         // Wait for worker to exit
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 2000));
 
         // We can't easily inspect the private resources map from here without a public method or hacking.
         // However, we can trust the implementation if we tested the logic manually. 

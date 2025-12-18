@@ -34,11 +34,13 @@ export class PluginManager extends EventEmitter {
   private storageRoot: string;
   private hostVersion = "1.0.0"; // Host application version
   private pluginLoadTimeout: number;
+  private workerFactory: (url: string | URL, options?: WorkerOptions) => Worker;
 
-  constructor(storageRoot: string = "./storage", options?: { pluginLoadTimeout?: number }) {
+  constructor(storageRoot: string = "./storage", options?: { pluginLoadTimeout?: number, workerFactory?: (url: string | URL, options?: WorkerOptions) => Worker }) {
     super();
     this.storageRoot = storageRoot;
     this.pluginLoadTimeout = options?.pluginLoadTimeout ?? 5000;
+    this.workerFactory = options?.workerFactory ?? ((url, opts) => new Worker(url, opts));
   }
 
   async register(plugin: IPlugin): Promise<void> {
@@ -123,21 +125,21 @@ export class PluginManager extends EventEmitter {
           error: (msg, ...args) => console.error(`[${plugin.name}] error: ${msg}`, ...args),
       },
       createWorker: (url, options) => {
-          const w = new Worker(url, options) as any; // Cast to any to satisfy BunWorker return type if needed
+          const w = this.workerFactory(url, options) as any; // Use factory
           
           // Auto-cleanup from resources on close
-          w.addEventListener("close", () => {
+          w.addEventListener?.("close", () => {
              // Remove from active resources to prevent list growing indefinitely
              resources.workers = resources.workers.filter(worker => worker !== w);
           });
           
           // Log errors to plugin logger
-          w.addEventListener("error", (err: ErrorEvent) => {
+          w.addEventListener?.("error", (err: ErrorEvent) => {
               console.error(`[${plugin.name}] Worker error:`, err.message); 
           });
 
           // Forward open event for logging/debug if needed
-          w.addEventListener("open", () => {
+          w.addEventListener?.("open", () => {
               // Optional debug log
               // console.log(`[${plugin.name}] Worker started`);
           });

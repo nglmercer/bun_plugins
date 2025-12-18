@@ -8,6 +8,7 @@ class MockWorker {
     url: string | URL;
     options?: WorkerOptions;
     terminated = false;
+    listeners = new Map<string, Function[]>();
 
     constructor(url: string | URL, options?: WorkerOptions) {
         this.url = url;
@@ -16,12 +17,45 @@ class MockWorker {
 
     terminate() {
         this.terminated = true;
+        this.dispatchEvent("close");
+    }
+
+    ref() {}
+    unref() {}
+
+    addEventListener(event: string, callback: Function) {
+        if (!this.listeners.has(event)) {
+            this.listeners.set(event, []);
+        }
+        this.listeners.get(event)!.push(callback);
+    }
+
+    removeEventListener(event: string, callback: Function) {
+        const list = this.listeners.get(event);
+        if (list) {
+            this.listeners.set(event, list.filter(cb => cb !== callback));
+        }
+    }
+
+    dispatchEvent(event: string, ...args: any[]) {
+        const list = this.listeners.get(event);
+        if (list) {
+            list.forEach(cb => cb(...args));
+        }
     }
 }
 
 // Override global Worker
-const originalWorker = globalThis.Worker;
-globalThis.Worker = MockWorker as any;
+// Don't mock globally
+// const originalWorker = globalThis.Worker;
+
+// beforeAll(() => {
+//     globalThis.Worker = MockWorker as any;
+// });
+
+// afterAll(() => {
+//     globalThis.Worker = originalWorker;
+// });
 
 describe("PluginManager Dependencies & Workers", () => {
     
@@ -73,7 +107,12 @@ describe("PluginManager Dependencies & Workers", () => {
     });
 
     it("should track and terminate workers on unload", async () => {
-        const manager = new PluginManager("./test-storage-workers");
+        // Inject mock factory
+        const mockFactory = (url: string | URL, options?: WorkerOptions) => {
+             return new MockWorker(url, options) as any;
+        };
+        
+        const manager = new PluginManager("./test-storage-workers", { workerFactory: mockFactory });
         const pluginName = "worker-plugin";
         let capturedWorker: MockWorker | undefined;
 
@@ -96,10 +135,5 @@ describe("PluginManager Dependencies & Workers", () => {
 
         expect(capturedWorker?.terminated).toBe(true);
     });
-});
-
-// Restore Worker
-afterAll(() => {
-    globalThis.Worker = originalWorker;
 });
    
