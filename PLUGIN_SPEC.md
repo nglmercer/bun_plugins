@@ -44,7 +44,7 @@ Plugins must explicitly request capabilities.
 - **`engines`**: (Optional) Specifies host version requirements (e.g. `{ "host": "^1.0.0" }`).
 - **Isolation Strategy**:
   - **Level 1 (Current)**: Cooperative isolation. Plugins run in main process. API access is gated by wrappers (e.g. `context.network.fetch`).
-  - **Level 2 (Planned)**: Process isolation. Plugins run in separate `Bun.Worker` threads. `onLoad` and hooks execute remotely.
+  - **Level 2 (Implemented)**: Process isolation. Plugins run in separate `Bun.Worker` threads. `onLoad` and hooks execute remotely via RPC.
 
 ## 2. Validation
 
@@ -99,10 +99,11 @@ To support active modification of system behavior (compatible with Bun/esbuild),
 Plugins can interact via:
 
 - **Shared API**: `context.getPlugin(name)` returns the `getSharedApi()` result of another plugin.
-- **Event Bus (Planned)**:
+- **Event Bus**:
   - Global Pub/Sub system.
   - Channels: `file:changed`, `plugin:start`, etc.
   - Methods: `context.events.emit`, `context.events.on`.
+  - _Implemented and type-safe via AppEvents interface._
 
 ## 8. Observability
 

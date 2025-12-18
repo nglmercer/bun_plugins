@@ -206,7 +206,9 @@ async function run() {
                     name: plugin.name,
                     version: plugin.version,
                     description: plugin.description,
-                    author: plugin.author
+                    author: plugin.author,
+                    permissions: plugin.permissions,
+                    allowedDomains: plugin.allowedDomains
                 }
             });
         }

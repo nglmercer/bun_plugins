@@ -3,6 +3,7 @@ import type { PluginContext, IPlugin, AppEvents, EventCallback } from "../types"
 import type { PluginManager } from "../PluginManager";
 import type { ResourceManager } from "./ResourceManager";
 import { type IPluginStorage } from "../types";
+import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "../utils/security";
 
 export function createPluginContext(
     manager: PluginManager,
@@ -16,13 +17,11 @@ export function createPluginContext(
     const pluginResources = resources.get(plugin.name);
     if (!pluginResources) throw new Error("Resources not initialized for plugin");
 
-    const getPermission = (perm: 'network' | 'filesystem' | 'env') => {
-        return plugin.permissions?.includes(perm);
-    };
-
-    const checkPermission = (perm: 'network' | 'filesystem' | 'env') => {
-        if (!getPermission(perm)) {
-            throw new Error(`AccessDenied: Plugin '${plugin.name}' requires '${perm}' permission.`);
+    const checkPermission = (perm: 'network' | 'filesystem' | 'env', url?: string) => {
+        if (perm === 'network' && url) {
+            checkNetworkPermission(plugin.name, plugin.permissions, plugin.allowedDomains, url);
+        } else if (perm === 'filesystem' || perm === 'env') {
+            checkGeneralPermission(plugin.name, plugin.permissions, perm);
         }
     };
 
@@ -107,21 +106,8 @@ export function createPluginContext(
         },
         network: {
             fetch: (input, init) => {
-                checkPermission('network');
-                if (plugin.allowedDomains) {
-                    const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
-                    let url: URL | undefined;
-                    try {
-                        url = new URL(urlStr);
-                    } catch (e) { }
-
-                    if (url) {
-                        const allowed = plugin.allowedDomains.some(d => url!.hostname === d || url!.hostname.endsWith('.' + d));
-                        if (!allowed) {
-                            throw new Error(`AccessDenied: Domain '${url!.hostname}' is not in allowedDomains for plugin '${plugin.name}'.`);
-                        }
-                    }
-                }
+                const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+                checkPermission('network', urlStr);
                 return fetch(input, init);
             }
         },

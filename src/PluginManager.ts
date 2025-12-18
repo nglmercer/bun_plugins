@@ -19,6 +19,7 @@ import { DependencyManager } from "./managers/DependencyManager";
 import { HooksManager } from "./managers/HooksManager";
 import { createPluginContext } from "./managers/ContextFactory";
 import { errorParser } from "./utils/errorParser";
+import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "./utils/security";
 
 export class PluginManager extends EventEmitter {
   private plugins: Map<string, IPlugin> = new Map();
@@ -47,11 +48,18 @@ export class PluginManager extends EventEmitter {
     // Resilient path detection
     let defaultWorkerPath = join(import.meta.dir, "worker", "WorkerRunner.ts");
     // If running from a bundle or compiled, try .js version
+    this.workerRunnerPath = options?.workerRunnerPath ?? defaultWorkerPath;
     if (!Bun.file(defaultWorkerPath).exists()) {
         const jsPath = defaultWorkerPath.replace(/\.ts$/, ".js");
-        defaultWorkerPath = jsPath;
+        const setPath = async () => {
+            const existFile = await Bun.file(jsPath).exists()
+            if (existFile) {
+                defaultWorkerPath = jsPath;
+            }
+            this.workerRunnerPath = defaultWorkerPath;
+        }
+        setPath();
     }
-    this.workerRunnerPath = options?.workerRunnerPath ?? defaultWorkerPath;
 
     // Initialize Sub-Managers
     this.resources = new ResourceManager();
@@ -151,12 +159,15 @@ export class PluginManager extends EventEmitter {
            res.workers.push(worker);
 
            // Cache permission checks
-           const hasPermission = (perm: string) => {
-               // In isolated mode, we should ideally fetch the plugin definition 
-                // but since it's dynamic, we trust the manifest or assume default if not provided yet.
-                // For now, we allow the host to pass permissions in a better way, 
-                // but we'll try to get it from the proxy we'll create.
-                return true; 
+           let pluginMetadata: IPlugin | undefined;
+           const checkPermission = (perm: 'network' | 'filesystem' | 'env', url?: string) => {
+                if (!pluginMetadata) return true; 
+                if (perm === 'network' && url) {
+                    checkNetworkPermission(pluginName, pluginMetadata.permissions, pluginMetadata.allowedDomains, url);
+                } else if (perm === 'filesystem' || perm === 'env') {
+                    checkGeneralPermission(pluginName, pluginMetadata.permissions, perm);
+                }
+                return true;
            };
            
            const rpcHandler = async (msg: any) => {
@@ -225,19 +236,20 @@ export class PluginManager extends EventEmitter {
                            // we might need a preliminary manifest read or a 'DECLARE' RPC.
                            result = true; 
                        }
-                       else if (method === 'network:fetch') {
-                           // Use the same logic as ContextFactory for consistency
-                           const [input, init] = args;
-                           // We need the actual plugin context or at least its metadata
-                           // For now, we perform a generic fetch or implement restricted logic
-                           // In a real scenario, we'd wait for LOAD_SUCCESS to get metadata/permissions
-                           result = await fetch(input, init).then(async r => ({
-                               status: r.status,
-                               statusText: r.statusText,
-                               headers: Object.fromEntries(r.headers.entries()),
-                               body: await r.text() // Simple implementation: text only for now
-                           }));
-                       }
+                        else if (method === 'network:fetch') {
+                            const [input, init] = args;
+                            const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+                            
+                            checkPermission('network', urlStr);
+                            
+                            const response = await fetch(input, init);
+                            result = {
+                                status: response.status,
+                                statusText: response.statusText,
+                                headers: Object.fromEntries(response.headers.entries()),
+                                body: await response.text() 
+                            };
+                        }
                        
                        worker.postMessage({ id, result });
                    } catch (e) {
@@ -261,32 +273,45 @@ export class PluginManager extends EventEmitter {
                         pending.reject(new Error(error));
                    }
                }
-              else if (msg.type === 'LOAD_SUCCESS') {
-                   const { metadata } = msg;
-                   const proxyPlugin: IPlugin = {
-                       name: metadata.name,
-                       version: metadata.version || "0.0.0",
-                       description: metadata.description,
-                       author: metadata.author,
-                       onLoad: () => {}, 
-                       onStarted: () => {
-                           worker.postMessage({ type: 'START_UP' });
-                       },
-                       onUnload: async () => {
-                           worker.postMessage({ type: 'UNLOAD' });
-                           // Give the worker some time to clean up
-                           await new Promise(r => setTimeout(r, 200));
-                           worker.terminate();
-                       },
-                   };
-                   this.plugins.set(metadata.name, proxyPlugin);
-                   console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);
-                   resolve();
-              }
-              else if (msg.type === 'LOAD_ERROR') {
-                  reject(new Error(msg.error));
-                  worker.terminate();
-              }
+               else if (msg.type === 'LOAD_SUCCESS') {
+                    const { metadata } = msg;
+                    pluginMetadata = metadata; // Update permission cache
+                    const proxyPlugin: IPlugin = {
+                        name: metadata.name,
+                        version: metadata.version || "0.0.0",
+                        description: metadata.description,
+                        author: metadata.author,
+                        permissions: metadata.permissions,
+                        allowedDomains: metadata.allowedDomains,
+                        onLoad: () => {}, 
+                        onStarted: () => {
+                            worker.postMessage({ type: 'START_UP' });
+                        },
+                        onUnload: async () => {
+                            worker.postMessage({ type: 'UNLOAD' });
+                            // Give the worker some time to clean up
+                            await new Promise(r => setTimeout(r, 200));
+                            worker.terminate();
+                            // Clear pending hooks on unload
+                            for (const pending of pendingHooks.values()) {
+                                pending.reject(new Error("Plugin unloaded"));
+                            }
+                            pendingHooks.clear();
+                        },
+                    };
+                    this.plugins.set(metadata.name, proxyPlugin);
+                    console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);
+                    resolve();
+               }
+               else if (msg.type === 'LOAD_ERROR') {
+                   // Cleanup pending hooks on load error
+                   for (const pending of pendingHooks.values()) {
+                        pending.reject(new Error(`Load error: ${msg.error}`));
+                   }
+                   pendingHooks.clear();
+                   reject(new Error(msg.error));
+                   worker.terminate();
+               }
            };
 
            worker.addEventListener("message", (event) => rpcHandler(event.data));
@@ -516,22 +541,18 @@ export class PluginManager extends EventEmitter {
       return this.hooksManager.toBunPlugin();
   }
 
+  private hotReloadTimer: Timer | number | null = null;
   enableHotReload(pluginDir: string) {
       console.log(`[HotReload] Watching ${pluginDir} for changes...`);
       watch(pluginDir, { recursive: true }, async (event, filename) => {
           if (!filename || (!filename.endsWith(".ts") && !filename.endsWith(".js"))) return;
-          console.log(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);
           
-          // Small debounce or delay to allow file to be written
-          await new Promise(r => setTimeout(r, 100));
+          if (this.hotReloadTimer) clearTimeout(this.hotReloadTimer as any);
           
-          // Re-load the directory to pick up new definitions
-          await this.loadPluginsFromDirectory(pluginDir);
-          
-          // Note: loadPluginsFromDirectory currently re-registers plugins if they are not in this.plugins.
-          // If the plugin was already loaded, we might want to force reload.
-          // For now, loadPluginsFromDirectory will log if it skips.
-          // Better: reload individual plugin if we can map filename -> plugin.
+          this.hotReloadTimer = setTimeout(async () => {
+              console.log(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);
+              await this.loadPluginsFromDirectory(pluginDir);
+          }, 300);
       });
   }
 
