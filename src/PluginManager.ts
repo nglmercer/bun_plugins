@@ -10,22 +10,15 @@ import type {
     OnResolveCallback,
     OnLoadCallback,
     OnResolveArgs,
-    OnLoadArgs
+    OnLoadArgs,
+    HookRegistry,
+    PluginResource
 } from "./types";
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
-import { z } from "zod";
 import semver from "semver";
 
-interface PluginResource {
-    workers: Worker[];
-}
 
-interface HookRegistry<T> {
-    filter: RegExp;
-    callback: T;
-    pluginName: string;
-}
 
 export class PluginManager extends EventEmitter {
   private plugins: Map<string, IPlugin> = new Map();
@@ -88,7 +81,7 @@ export class PluginManager extends EventEmitter {
     }
 
     // 3. Initialize Resources
-    const resources: PluginResource = { workers: [] };
+    const resources: PluginResource = { workers: [], timers: [] };
     this.pluginResources.set(plugin.name, resources);
 
     const getPermission = (perm: 'network' | 'filesystem' | 'env') => {
@@ -100,6 +93,11 @@ export class PluginManager extends EventEmitter {
             throw new Error(`AccessDenied: Plugin '${plugin.name}' requires '${perm}' permission.`);
         }
     };
+
+    // Sanitize plugin name for storage
+    if (plugin.name.includes("..") || plugin.name.includes("/") || plugin.name.includes("\\")) {
+        throw new Error(`Invalid plugin name: ${plugin.name}. Name cannot contain path traversal characters.`);
+    }
 
     // Context Creation
     const context: PluginContext = {
@@ -128,6 +126,25 @@ export class PluginManager extends EventEmitter {
           const w = new Worker(url, options);
           resources.workers.push(w);
           return w;
+      },
+      // Timer Wrappers
+      setTimeout: (callback: (...args: any[]) => void, delay?: number, ...args: any[]) => {
+           const id = setTimeout(callback, delay, ...args);
+           resources.timers.push({ id, type: 'timeout' });
+           return id;
+      },
+      setInterval: (callback: (...args: any[]) => void, delay?: number, ...args: any[]) => {
+           const id = setInterval(callback, delay, ...args);
+           resources.timers.push({ id, type: 'interval' });
+           return id;
+      },
+      clearTimeout: (id: number | Timer) => {
+           clearTimeout(id as any); // cast as any to satisfy incompatible overloads if environment differs
+           resources.timers = resources.timers.filter(t => t.id !== id);
+      },
+      clearInterval: (id: number | Timer) => {
+           clearInterval(id as any);
+           resources.timers = resources.timers.filter(t => t.id !== id);
       },
       network: {
           fetch: (input, init) => {
@@ -168,7 +185,7 @@ export class PluginManager extends EventEmitter {
     // 4. Setup Hooks with Performance Monitoring
     if (plugin.setup) {
         const builder: PluginBuilder = {
-            onResolve: (filter, callback) => {
+            onResolve: (filter, callback, options) => {
                 const perfCallback: OnResolveCallback = async (args) => {
                     const start = performance.now();
                     const res = await callback(args);
@@ -176,9 +193,10 @@ export class PluginManager extends EventEmitter {
                     if (dur > 100) console.warn(`[Performance] ${plugin.name} onResolve took ${dur.toFixed(2)}ms`);
                     return res;
                 };
-                this.onResolveHooks.push({ filter, callback: perfCallback, pluginName: plugin.name });
+                this.onResolveHooks.push({ filter, callback: perfCallback, pluginName: plugin.name, order: options?.order });
+                // Sort hooks by priority: pre < undefined < post
             },
-            onLoad: (filter, callback) => {
+            onLoad: (filter, callback, options) => {
                  const perfCallback: OnLoadCallback = async (args) => {
                     const start = performance.now();
                     const res = await callback(args);
@@ -186,7 +204,7 @@ export class PluginManager extends EventEmitter {
                     if (dur > 100) console.warn(`[Performance] ${plugin.name} onLoad took ${dur.toFixed(2)}ms`);
                     return res;
                 };
-                this.onLoadHooks.push({ filter, callback: perfCallback, pluginName: plugin.name });
+                this.onLoadHooks.push({ filter, callback: perfCallback, pluginName: plugin.name, order: options?.order });
             }
         };
         try {
@@ -247,7 +265,12 @@ export class PluginManager extends EventEmitter {
 
   // Hook Execution Methods
   async runOnResolve(args: OnResolveArgs) {
-      for (const hook of this.onResolveHooks) {
+      const sortedHooks = [...this.onResolveHooks].sort((a, b) => {
+          const score = (o?: 'pre' | 'post') => o === 'pre' ? -1 : o === 'post' ? 1 : 0;
+          return score(a.order) - score(b.order);
+      });
+
+      for (const hook of sortedHooks) {
           if (hook.filter.test(args.path)) {
               const result = await hook.callback(args);
               if (result) return result;
@@ -257,7 +280,12 @@ export class PluginManager extends EventEmitter {
   }
 
   async runOnLoad(args: OnLoadArgs) {
-      for (const hook of this.onLoadHooks) {
+      const sortedHooks = [...this.onLoadHooks].sort((a, b) => {
+          const score = (o?: 'pre' | 'post') => o === 'pre' ? -1 : o === 'post' ? 1 : 0;
+          return score(a.order) - score(b.order);
+      });
+
+      for (const hook of sortedHooks) {
           if (hook.filter.test(args.path)) {
               const result = await hook.callback(args);
               if (result) return result;
@@ -272,6 +300,10 @@ export class PluginManager extends EventEmitter {
           for (const worker of resources.workers) {
               console.log(`Terminating worker for plugin ${pluginName}`);
               worker.terminate();
+          }
+          for (const timer of resources.timers) {
+              if (timer.type === 'timeout') clearTimeout(timer.id as number);
+              if (timer.type === 'interval') clearInterval(timer.id as number);
           }
           this.pluginResources.delete(pluginName);
       }

@@ -1,5 +1,15 @@
 import { z } from "zod";
+export interface PluginResource {
+    workers: Worker[];
+    timers: { id: number | Timer; type: 'timeout' | 'interval' }[];
+}
 
+export interface HookRegistry<T> {
+    filter: RegExp;
+    callback: T;
+    pluginName: string;
+    order?: 'pre' | 'post';
+}
 // Define a global map of events for type safety
 // Users can use declaration merging to extend this interface
 export interface AppEvents {
@@ -55,6 +65,12 @@ export interface PluginContext {
   file: (path: string) => any; // Returns BunFile-like object
 
   env: Record<string, string | undefined>;
+
+  // Timers
+  setTimeout: (callback: (...args: any[]) => void, delay?: number, ...args: any[]) => number | Timer;
+  setInterval: (callback: (...args: any[]) => void, delay?: number, ...args: any[]) => number | Timer;
+  clearTimeout: (id: number | Timer) => void;
+  clearInterval: (id: number | Timer) => void;
 }
 
 export class AccessDeniedError extends Error {
@@ -110,6 +126,6 @@ export type OnLoadResult = { contents: string; loader?: string } | undefined | n
 export type OnLoadCallback = (args: OnLoadArgs) => OnLoadResult | Promise<OnLoadResult>;
 
 export interface PluginBuilder {
-  onResolve(filter: RegExp, callback: OnResolveCallback): void;
-  onLoad(filter: RegExp, callback: OnLoadCallback): void;
+  onResolve(filter: RegExp, callback: OnResolveCallback, options?: { order?: 'pre' | 'post' }): void;
+  onLoad(filter: RegExp, callback: OnLoadCallback, options?: { order?: 'pre' | 'post' }): void;
 }

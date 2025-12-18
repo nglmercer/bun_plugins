@@ -18,6 +18,7 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
 - [x] **Permissions Definition** (`permissions` field) - _Implemented in types and schema_
 - [x] **Enforcement** - _Implemented via restricted `PluginContext` (network.fetch, env)_
+- [x] **Path Traversal Protection** - _Implemented (plugin name validation)_
 - [ ] **Isolation** - _Not Implemented (Runs in same process, only API-level gating)_
 
 ## 4. Storage System
@@ -35,6 +36,7 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 ## 6. Hooks System (Interception)
 
 - [x] **`setup(build)` method** - _Implemented (`IPlugin.setup`)_
+- [x] **Hook Priority** (`pre` | `post` | default) - _Implemented_
 - [x] **`PluginBuilder` Interface** - _Implemented_
 - [x] **Hooks Logic** (`onResolve`, `onLoad`) - _Implemented (Hooks registry & execution methods)_
 
@@ -51,11 +53,12 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 ## 9. Observability
 
 - [x] **Scoped Logging** (`context.log`) - _Implemented_
-- [ ] **Performance Metrics** (Init time tracking) - _Not Implemented_
+- [x] **Performance Metrics** (Init time tracking) - _Implemented_
 
-## 10. Workers
+## 10. Workers & Resources
 
 - [x] **Worker Creation** (`context.createWorker`) - _Implemented_
+- [x] **Timer Cleanup** (`setInterval`/`setTimeout` auto-clear) - _Implemented_
 - [x] **Lifecycle Management** (Auto-terminate on unload) - _Implemented_
 
 ---
