@@ -103,10 +103,11 @@ describe("Bun Worker Integration", () => {
 
         // We can't easily inspect the private resources map from here without a public method or hacking.
         // However, we can trust the implementation if we tested the logic manually. 
-        // Or we can query `manager['pluginResources']` if we strip private (TS only).
+        // Or we can query `manager['resources']` if we strip private (TS only).
         
         // @ts-ignore
-        const resources = manager.pluginResources.get("cleanup-plugin");
+        const resourceManager = manager.resources;
+        const resources = resourceManager.get("cleanup-plugin");
         expect(resources).toBeDefined();
         // Should be empty or filtered
         expect(resources?.workers).not.toContain(capturedWorker);

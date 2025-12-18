@@ -9,6 +9,8 @@ class MockWorker {
     options?: WorkerOptions;
     terminated = false;
     listeners = new Map<string, Function[]>();
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: ((event: ErrorEvent) => void) | null = null;
 
     constructor(url: string | URL, options?: WorkerOptions) {
         this.url = url;
@@ -18,6 +20,10 @@ class MockWorker {
     terminate() {
         this.terminated = true;
         this.dispatchEvent("close");
+    }
+
+    postMessage(data: any) {
+        // Mock implementation - do nothing
     }
 
     ref() {}
@@ -42,6 +48,7 @@ class MockWorker {
         if (list) {
             list.forEach(cb => cb(...args));
         }
+        return true;
     }
 }
 
@@ -88,22 +95,22 @@ describe("PluginManager Dependencies & Workers", () => {
         // Since loadPluginsFromDirectory reads from Disk, let's test the dependency helper logic directly 
         // OR better: use the manager to load strictly.
         
-        // Let's test resolveDependencyOrder privately
-        const resolve = (manager as any).resolveDependencyOrder.bind(manager);
+        // Let's test resolveDependencyOrder via dependencyManager
+        const depManager = (manager as any).dependencyManager;
         
-        const sorted = resolve([pluginA, pluginB]);
+        const sorted = depManager.resolveLoadOrder([pluginA, pluginB]);
         
         expect(sorted.map((p: any) => p.name)).toEqual(["plugin-b", "plugin-a"]);
     });
 
     it("should detect circular dependencies", () => {
         const manager = new PluginManager();
-        const resolve = (manager as any).resolveDependencyOrder.bind(manager);
+        const depManager = (manager as any).dependencyManager;
 
         const p1: IPlugin = { name: "p1", version: "1", dependencies: { "p2": "1" }, onLoad: () => {}, onUnload: () => {} };
         const p2: IPlugin = { name: "p2", version: "1", dependencies: { "p1": "1" }, onLoad: () => {}, onUnload: () => {} };
 
-        expect(() => resolve([p1, p2])).toThrow("Circular dependency");
+        expect(() => depManager.resolveLoadOrder([p1, p2])).toThrow("Circular dependency");
     });
 
     it("should track and terminate workers on unload", async () => {
