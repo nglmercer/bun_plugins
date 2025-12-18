@@ -76,18 +76,20 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
 ### High Priority (Stability & Distribution)
 
-1. **Worker Path Resilience**:
+1. [x] **Worker Path Resilience**:
 
-   - The path to `WorkerRunner.ts` is currently hardcoded relative to the source. This might break in distribution.
-   - _Action_: Use a configurable path or bundle the worker runner.
+   - _Action_: Optimized path detection for .ts/.js environments.
 
-2. **Domain-based Network Filtering in Isolated Mode**:
+2. [x] **Domain-based Network Filtering in Isolated Mode**:
 
-   - The `allowedDomains` check is implemented in `ContextFactory` (Native Mode) but missing in the `registerIsolated` RPC handler.
-   - _Action_: Add domain validation to the `network:fetch` case in `PluginManager.ts`.
+   - _Action_: Added domain validation to the `network:fetch` case in `PluginManager.ts`.
 
-3. **Isolated Resource Leak Protection**:
-   - Ensure `pendingHooks` in `registerIsolated` are cleaned up on timeout/failure to avoid memory leaks.
+3. [x] **Isolated Resource Leak Protection**:
+
+   - _Action_: Implemented global loading timeouts and strict cleanup on failure.
+
+4. [x] **Lifecycle Unification**:
+   - _Action_: Ensure `onStarted` is called for both batch and individual registrations.
 
 ### Medium Priority (Developer Experience)
 
@@ -95,5 +97,6 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
    - Create a simple CLI or template to bootstrap new plugins with the correct structure and types.
 
-2. **Documentation Polish**:
-   - [x] Sync `PLUGIN_SPEC.md` with implementation details (Storage paths, Hook behaviors, newer fields).
+2. [x] **Documentation Polish**:
+   - [x] Sync `PLUGIN_SPEC.md` with implementation details.
+   - [x] Generated API documentation in `/docs/`.

@@ -10,12 +10,14 @@ The main class to handle plugin lifecycle and coordination.
 
 ### Methods
 
-- `register(plugin: IPlugin): Promise<void>`: Manually register a plugin.
-- `unregister(name: string): Promise<void>`: Unload a plugin.
-- `loadPluginsFromDirectory(path: string): Promise<void>`: Scans and loads all valid plugins in a folder.
-- `enablePlugin(name: string) / disablePlugin(name: string)`: Persistent activation/deactivation.
-- `toBunPlugin()`: Returns a bridge for `Bun.plugin()`.
-- `getPluginStatus()`: Returns metrics and status for all loaded plugins.
+- `register(plugin: IPlugin): Promise<void>`: Manually register a plugin. Triggers `onLoad` and then `onStarted`.
+- `registerIsolated(path: string, name: string): Promise<void>`: Loads a plugin in a separate `Bun.Worker` for process-level isolation.
+- `unregister(name: string): Promise<void>`: Unload a plugin and cleanup all associated resources.
+- `loadPluginsFromDirectory(path: string): Promise<void>`: Scans and loads plugins in batch, respecting dependency order.
+- `enablePlugin(name: string) / disablePlugin(name: string)`: Persistent activation/deactivation via `plugins.json`.
+- `toBunPlugin()`: Bridge to use the plugin system hooks directly inside a Bun build pipeline.
+- `getMetrics()`: Returns a summary of active plugins, resource usage, and hook statistics.
+- `getPluginStatus()`: Detailed status report including specific resource counts for each plugin.
 
 ## `IPlugin` Interface
 

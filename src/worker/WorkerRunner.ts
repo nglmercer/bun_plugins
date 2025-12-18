@@ -97,6 +97,19 @@ async function run() {
             throw new Error(`[Worker:${pluginName}] No valid plugin found in ${pluginPath}`);
         }
 
+        // Send Manifest immediately after load for security context initialization in host
+        parentPort!.postMessage({
+            type: 'MANIFEST',
+            metadata: {
+                name: plugin.name,
+                version: plugin.version,
+                description: plugin.description,
+                author: plugin.author,
+                permissions: plugin.permissions,
+                allowedDomains: plugin.allowedDomains
+            }
+        });
+
         // Create Proxy Context
         const contextProxy: PluginContext = {
             manager: {} as any, // Manager is not accessible remotely directly

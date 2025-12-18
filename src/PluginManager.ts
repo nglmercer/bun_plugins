@@ -134,6 +134,15 @@ export class PluginManager extends EventEmitter {
 
       this.plugins.set(plugin.name, plugin);
       console.log(`Plugin ${plugin.name} loaded successfully in ${duration.toFixed(2)}ms.`);
+      
+      // Trigger onStarted after registration if provided
+      if (plugin.onStarted) {
+          try {
+              await plugin.onStarted();
+          } catch (e) {
+              console.error(`Error in onStarted for ${plugin.name}:`, e);
+          }
+      }
     } catch (error) {
       console.error(`Failed to load plugin ${plugin.name}:`, error);
       // Cleanup resources directly since plugin is not in this.plugins yet
@@ -147,9 +156,20 @@ export class PluginManager extends EventEmitter {
        return new Promise((resolve, reject) => {
            const workerScript = this.workerRunnerPath;
            console.log("Worker Path:", workerScript);
+           const timeoutId = setTimeout(() => {
+               worker.terminate();
+               reject(new Error(`Isolated plugin ${pluginName} timed out during loading (${this.pluginLoadTimeout}ms)`));
+           }, this.pluginLoadTimeout);
            const worker = this.workerFactory(workerScript, {
                workerData: { pluginPath, pluginName }
            } as WorkerOptions & { workerData: any });
+
+           // Sanitize plugin name for storage
+           if (pluginName.includes("..") || pluginName.includes("/") || pluginName.includes("\\")) {
+               clearTimeout(timeoutId);
+               worker.terminate();
+               return reject(new Error(`Invalid plugin name: ${pluginName}. Name cannot contain path traversal characters.`));
+           }
 
            const storage = new JsonPluginStorage(this.storageRoot, pluginName);
            const pendingHooks = new Map<string, { resolve: Function, reject: Function }>();
@@ -161,7 +181,9 @@ export class PluginManager extends EventEmitter {
            // Cache permission checks
            let pluginMetadata: IPlugin | undefined;
            const checkPermission = (perm: 'network' | 'filesystem' | 'env', url?: string) => {
-                if (!pluginMetadata) return true; 
+                if (!pluginMetadata) {
+                    throw new Error(`AccessDenied: Cannot perform '${perm}' operations before plugin metadata is initialized.`);
+                } 
                 if (perm === 'network' && url) {
                     checkNetworkPermission(pluginName, pluginMetadata.permissions, pluginMetadata.allowedDomains, url);
                 } else if (perm === 'filesystem' || perm === 'env') {
@@ -273,9 +295,15 @@ export class PluginManager extends EventEmitter {
                         pending.reject(new Error(error));
                    }
                }
-               else if (msg.type === 'LOAD_SUCCESS') {
+                else if (msg.type === 'MANIFEST') {
                     const { metadata } = msg;
-                    pluginMetadata = metadata; // Update permission cache
+                    pluginMetadata = metadata;
+                    console.log(`Metadata received for isolated plugin: ${metadata.name}`);
+                }
+                else if (msg.type === 'LOAD_SUCCESS') {
+                     clearTimeout(timeoutId); // Success, clear global timeout
+                     const { metadata } = msg;
+                     pluginMetadata = metadata; // Update permission cache (redundant if MANIFEST sent but safe)
                     const proxyPlugin: IPlugin = {
                         name: metadata.name,
                         version: metadata.version || "0.0.0",
@@ -303,9 +331,10 @@ export class PluginManager extends EventEmitter {
                     console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);
                     resolve();
                }
-               else if (msg.type === 'LOAD_ERROR') {
-                   // Cleanup pending hooks on load error
-                   for (const pending of pendingHooks.values()) {
+                else if (msg.type === 'LOAD_ERROR') {
+                    clearTimeout(timeoutId);
+                    // Cleanup pending hooks on load error
+                    for (const pending of pendingHooks.values()) {
                         pending.reject(new Error(`Load error: ${msg.error}`));
                    }
                    pendingHooks.clear();
@@ -315,15 +344,16 @@ export class PluginManager extends EventEmitter {
            };
 
            worker.addEventListener("message", (event) => rpcHandler(event.data));
-           worker.addEventListener("error", (err) => {
-               console.error(`[Isolated:${pluginName}] Worker Error:`, err);
-               // Reject all pending hooks on crash
-               for (const pending of pendingHooks.values()) {
-                   pending.reject(new Error("Worker terminated unexpectedly"));
-               }
-               pendingHooks.clear();
-               reject(err);
-           });
+            worker.addEventListener("error", (err) => {
+                clearTimeout(timeoutId);
+                console.error(`[Isolated:${pluginName}] Worker Error:`, err);
+                // Reject all pending hooks on crash
+                for (const pending of pendingHooks.values()) {
+                    pending.reject(new Error("Worker terminated unexpectedly"));
+                }
+                pendingHooks.clear();
+                reject(err);
+            });
        });
   }
 

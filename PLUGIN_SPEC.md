@@ -23,8 +23,8 @@ Each plugin MUST adhere to the `IPlugin` interface.
 
 ### Lifecycle Methods
 
-- **`onLoad(context: PluginContext)`**: Called when the plugin is activated.
-- **`onStarted()`** (Optional): Called after all plugins in a batch have been loaded. Useful for cross-plugin initialization once dependencies are guaranteed to be ready.
+- **`onLoad(context: PluginContext)`**: Called when the plugin is activated. Base initialization logic.
+- **`onStarted()`** (Optional): Called after `onLoad` completes. In batch loading, it executes after all plugins in the batch have completed `onLoad`.
 - **`onUnload()`**: Called when the plugin is deactivated or the app shuts down.
 
 ### Dependencies
