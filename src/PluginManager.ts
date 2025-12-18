@@ -83,7 +83,7 @@ export class PluginManager extends EventEmitter {
     }
 
     // 3. Initialize Resources
-    const resources: PluginResource = { workers: [], timers: [] };
+    const resources: PluginResource = { workers: [], timers: [], eventListeners: [] };
     this.pluginResources.set(plugin.name, resources);
 
     const getPermission = (perm: 'network' | 'filesystem' | 'env') => {
@@ -255,6 +255,133 @@ export class PluginManager extends EventEmitter {
     }
   }
 
+  async registerIsolated(pluginPath: string, pluginName: string): Promise<void> {
+       return new Promise((resolve, reject) => {
+           // We need to know some metadata (permissions) BEFORE starting worker to check deps?
+           // Currently assume isolated plugins are standalone or we accept eager loading.
+           // For simplicity in this iteration: We spawn worker, it loads plugin, if success, we register a "Proxy Plugin".
+           
+           const workerScript = join(import.meta.dir, "worker", "WorkerRunner.ts");
+           console.log("Worker Path:", workerScript);
+           const worker = new Worker(workerScript, {
+               workerData: { pluginPath, pluginName }
+           } as WorkerOptions & { workerData: any });
+
+           const storage = new JsonPluginStorage(this.storageRoot, pluginName);
+
+            const pendingHooks = new Map<string, { resolve: Function, reject: Function }>();
+
+            // Resources
+            const resources: PluginResource = { workers: [worker], timers: [], eventListeners: [] };
+            this.pluginResources.set(pluginName, resources);
+            
+            const rpcHandler = async (msg: any) => {
+                if (msg.type === 'RPC_CALL') {
+                    const { id, method, args } = msg;
+                    try {
+                        let result;
+                        if (method === 'storage:get') result = await storage.get(args[0], args[1]);
+                        else if (method === 'storage:set') result = await storage.set(args[0], args[1]);
+                        else if (method === 'storage:delete') result = await storage.delete(args[0]);
+                        else if (method === 'storage:clear') result = await storage.clear();
+                        else if (method === 'events:emit') {
+                            this.emit(args[0], args[1]);
+                            result = true;
+                        }
+                        else if (method === 'events:on') {
+                             const eventName = args[0];
+                             const listener = (payload: any) => {
+                                 worker.postMessage({ type: 'EVENT_EMIT', event: eventName, payload });
+                             };
+                             this.on(eventName, listener);
+                             resources.eventListeners.push({ event: eventName, listener });
+                             result = true;
+                        }
+                        else if (method === 'hooks:register') {
+                             const [ type, { filter, id: hookId, options } ] = args;
+                             const filterRegExp = new RegExp(filter);
+                             
+                             const proxyCallback = (hookArgs: any) => {
+                                 return new Promise<any>((resolve, reject) => {
+                                     const requestId = Math.random().toString(36).substring(7);
+                                     pendingHooks.set(requestId, { resolve, reject });
+                                     worker.postMessage({ type: 'HOOK_CALL', id: hookId, args: hookArgs, requestId });
+                                     
+                                     // Timeout safety
+                                     setTimeout(() => {
+                                         if (pendingHooks.has(requestId)) {
+                                             pendingHooks.delete(requestId);
+                                             reject(new Error("Hook execution timed out"));
+                                         }
+                                     }, 5000);
+                                 });
+                             };
+
+                             if (type === 'onResolve') {
+                                 this.onResolveHooks.push({ filter: filterRegExp, callback: proxyCallback, pluginName, order: options?.order });
+                             } else if (type === 'onLoad') {
+                                 this.onLoadHooks.push({ filter: filterRegExp, callback: proxyCallback, pluginName, order: options?.order });
+                             }
+                             result = true;
+                        }
+                        else if (method === 'log') {
+                            const level = args[0] as 'info' | 'warn' | 'error';
+                            console[level](`[${pluginName}]`, ...args.slice(1));
+                            result = true;
+                        }
+                        else if (method === 'perm:check') {
+                            // Simple Permission Check Logic
+                            result = true; 
+                        }
+                        
+                        worker.postMessage({ id, result });
+                    } catch (e: any) {
+                        worker.postMessage({ id, error: e.message });
+                    }
+                }
+                else if (msg.type === 'HOOK_RESULT') {
+                    const { requestId, result } = msg;
+                    const pending = pendingHooks.get(requestId);
+                    if (pending) {
+                        pendingHooks.delete(requestId);
+                        pending.resolve(result);
+                    }
+                }
+                else if (msg.type === 'HOOK_ERROR') {
+                    const { requestId, error } = msg;
+                    const pending = pendingHooks.get(requestId);
+                    if (pending) {
+                         pendingHooks.delete(requestId);
+                         pending.reject(new Error(error));
+                    }
+                }
+               else if (msg.type === 'LOAD_SUCCESS') {
+                    // Create a Proxy Plugin object for the manager registry
+                    const proxyPlugin: IPlugin = {
+                        name: pluginName,
+                        version: "0.0.0", // Todo: Worker should send metadata
+                        onLoad: () => {}, // Already loaded in worker
+                        onUnload: () => worker.terminate(),
+                        // Worker plugins currently don't expose sync getSharedApi or hooks easily without more RPC
+                    };
+                    this.plugins.set(pluginName, proxyPlugin);
+                    console.log(`Isolated Plugin ${pluginName} loaded in worker.`);
+                    resolve();
+               }
+               else if (msg.type === 'LOAD_ERROR') {
+                   reject(new Error(msg.error));
+                   worker.terminate();
+               }
+           };
+
+           worker.addEventListener("message", (event) => rpcHandler(event.data));
+           worker.addEventListener("error", (err) => {
+               console.error("Worker Error:", err);
+               reject(err);
+           });
+       });
+  }
+
   async unregister(pluginName: string): Promise<void> {
     const plugin = this.plugins.get(pluginName);
     if (!plugin) return;
@@ -305,13 +432,32 @@ export class PluginManager extends EventEmitter {
           return score(a.order) - score(b.order);
       });
 
+      let currentResult: { contents?: string, loader?: string } | null = null;
+      let pipelineContents: string | undefined = undefined;
+
       for (const hook of sortedHooks) {
           if (hook.filter.test(args.path)) {
-              const result = await hook.callback(args);
-              if (result) return result;
+              // Pass current pipeline state to next hook
+              const hookArgs: OnLoadArgs = { ...args, previousContents: pipelineContents };
+              
+              const result = await hook.callback(hookArgs);
+              
+              if (result) {
+                  // Update pipeline state
+                  if (result.contents !== undefined) {
+                      pipelineContents = result.contents;
+                  }
+                  
+                  // Accumulate result (loader, etc.)
+                  currentResult = { 
+                      ...(currentResult || {}), 
+                      ...result,
+                      contents: pipelineContents! // Ensure final result has latest contents
+                  };
+              }
           }
       }
-      return null;
+      return currentResult;
   }
 
   private cleanupResources(pluginName: string) {
@@ -324,6 +470,9 @@ export class PluginManager extends EventEmitter {
           for (const timer of resources.timers) {
               if (timer.type === 'timeout') clearTimeout(timer.id as number);
               if (timer.type === 'interval') clearInterval(timer.id as number);
+          }
+          for (const listener of resources.eventListeners) {
+               this.off(listener.event, listener.listener as any);
           }
           this.pluginResources.delete(pluginName);
       }

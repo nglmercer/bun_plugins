@@ -19,7 +19,7 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 - [x] **Permissions Definition** (`permissions` field) - _Implemented in types and schema_
 - [x] **Enforcement** - _Implemented via restricted `PluginContext` (network.fetch, env)_
 - [x] **Path Traversal Protection** - _Implemented (plugin name validation)_
-- [ ] **Isolation** - _Not Implemented (Runs in same process, only API-level gating)_
+- [x] **Isolation** - _Implemented (Bun Workers with RPC)_
 
 ## 4. Storage System
 
@@ -57,19 +57,49 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
 ## 10. Workers & Resources
 
-- [x] **Worker Creation** (`context.createWorker`) - _Implemented_
-- [x] **Timer Cleanup** (`setInterval`/`setTimeout` auto-clear) - _Implemented_
-- [x] **Lifecycle Management** (Auto-terminate on unload) - _Implemented_
+- [x] **Capabilities**: Full access to Bun's `Worker` features.
 
 ## 11. Public API & Refactoring
 
 - [x] **Centralized Exports** - _Implemented in `src/index.ts`_
 - [x] **Cleanup** - _Removed redundant `index.ts` entry points_
 
+## 12. Future / Planned (Roadmap)
+
+- [x] **Runtime Isolation** - _Implemented (Plugins run in Worker threads, hooks/events proxied via RPC)_
+- [x] **Hooks Pipeline** - _Implemented (onLoad uses waterfall pipeline, onResolve matches first)_
+- [x] **Global Event Bus** - _Implemented (Bi-directional IPC between Main and Workers)_
+
 ---
 
 ## Recommended Next Tasks
 
-1. **Implement Hooks System**: Add `setup` to `IPlugin` and implement the `PluginBuilder` logic to allow plugins to intercept operations.
-2. **Implement Timeouts**: Wrap `onLoad` calls in a timeout promise to prevent hanging.
-3. **Implement Metrics**: Add simple `performance.now()` tracking around `onLoad`.
+### High Priority (Stability & Correctness)
+
+1. **Connect Hooks to Runtime**:
+
+   - The `PluginBuilder` interface exists, but `PluginManager.runOnResolve` / `runOnLoad` are not automatically connected to `Bun.plugin` or the application's build process.
+   - _Action_: Create a bridge function `manager.toBunPlugin()` that returns a Bun-compatible plugin object invoking the internal hooks.
+
+2. **Fix "Zombie Worker" & Isolation Risks**:
+
+   - Current `onLoad` runs in the main thread. A synchronous infinite loop will freeze the host.
+   - _Action_: Refactor `onLoad` to run inside a `Bun.Worker` if strict isolation is required, or strictly document that plugins serve as "trusted middleware" (Cooperative Multitasking).
+   - _Refinement_: Ensure `manager.pluginResources` consistently tracks all resources even if `onLoad` crashes violently.
+
+3. **Robust Config Validation**:
+   - _Action_: Implement "Safe Mode" or simple migration check. If `configSchema` fails validation on boot (due to updates), disable the plugin or load with default config, logging a critical error, instead of crashing the `PluginManager`.
+
+### Medium Priority (Features)
+
+4. **Global Event Bus (Pub/Sub)**:
+
+   - Implement `emit` / `on` in `PluginManager` and expose strictly namespaced versions in `PluginContext`.
+   - Events: `plugin:loaded`, `plugin:unloaded`, `app:ready`.
+
+5. **SemVer Dependency Resolution**:
+
+   - Improve the current simple version check to use a full SAT solver or more robust `semver` logic if complex dependency trees arise (currently simple DAG + `semver.satisfies`).
+
+6. **Hot Reloading**:
+   - Implement a file watcher on the `plugins/` directory to automatically call `reloadPlugin(name)` on change.

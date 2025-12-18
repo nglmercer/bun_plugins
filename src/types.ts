@@ -2,6 +2,7 @@ import { z } from "zod";
 export interface PluginResource {
     workers: Worker[];
     timers: { id: number | Timer; type: 'timeout' | 'interval' }[];
+    eventListeners: { event: string; listener: Function }[];
 }
 
 export interface HookRegistry<T> {
@@ -134,7 +135,7 @@ export type OnResolveArgs = { path: string; importer?: string; namespace?: strin
 export type OnResolveResult = { path: string; namespace?: string } | undefined | null;
 export type OnResolveCallback = (args: OnResolveArgs) => OnResolveResult | Promise<OnResolveResult>;
 
-export type OnLoadArgs = { path: string; namespace?: string };
+export type OnLoadArgs = { path: string; namespace?: string; previousContents?: string };
 export type OnLoadResult = { contents: string; loader?: string } | undefined | null;
 export type OnLoadCallback = (args: OnLoadArgs) => OnLoadResult | Promise<OnLoadResult>;
 
