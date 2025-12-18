@@ -1,7 +1,7 @@
 
 import { parentPort, workerData } from "worker_threads";
 import { type IPlugin, type PluginContext } from "../types";
-
+import { errorParser } from "../utils/errorParser";
 // This is the "Shell" that runs inside the Worker.
 // It receives the plugin path, loads it, and executes onLoad.
 // It creates a proxy Context that talks back to the main thread via postMessage.
@@ -42,8 +42,9 @@ async function run() {
                 try {
                     const result = await callback(args);
                     parentPort!.postMessage({ type: 'HOOK_RESULT', requestId, result });
-                } catch (e: any) {
-                    parentPort!.postMessage({ type: 'HOOK_ERROR', requestId, error: e.message });
+                } catch (e) {
+                    const error = errorParser(e, `Error in hook ${id}`);
+                    parentPort!.postMessage({ type: 'HOOK_ERROR', requestId, error: error.message });
                 }
             } else {
                  parentPort!.postMessage({ type: 'HOOK_ERROR', requestId, error: "Hook not found" });
@@ -57,7 +58,8 @@ async function run() {
                     try {
                         await cb(payload);
                     } catch (e) {
-                        console.error(`[Worker:${pluginName}] Error in event listener for ${event}:`, e);
+                        const error = errorParser(e, `Error in event listener for ${event}`);
+                        console.error(`[Worker:${pluginName}] Error in event listener for ${event}:`, error.message);
                     }
                 }
             }
@@ -112,7 +114,7 @@ async function run() {
                 on: (event, cb) => contextProxy.on(event, cb)
             },
             
-            getPlugin: () => undefined, // Hard to access other plugins synchronously
+            getPlugin: (name: string) => rpc('manager:getPlugin', name),
             
             log: {
                 info: (msg, ...args) => rpc('log', 'info', msg, ...args),
@@ -179,17 +181,34 @@ async function run() {
         // Run onLoad
         if (plugin.onLoad) {
             await plugin.onLoad(contextProxy);
-            parentPort!.postMessage({ type: 'LOAD_SUCCESS' });
+            parentPort!.postMessage({ 
+                type: 'LOAD_SUCCESS', 
+                metadata: {
+                    name: plugin.name,
+                    version: plugin.version,
+                    description: plugin.description,
+                    author: plugin.author
+                }
+            });
         }
         
-        // Run onStarted
-        if (plugin.onStarted) {
-            await plugin.onStarted();
-        }
+        // Listen for START_UP signal to run onStarted
+        parentPort!.on('message', async (msg: any) => {
+            if (msg.type === 'START_UP') {
+                if (plugin.onStarted) {
+                    try {
+                        await plugin.onStarted();
+                    } catch (e) {
+                        console.error(`[Worker:${pluginName}] Error in onStarted:`, e);
+                    }
+                }
+            }
+        });
 
-    } catch (e: any) {
-        console.error(`[Worker:${pluginName}] Error:`, e);
-        parentPort!.postMessage({ type: 'LOAD_ERROR', error: e.message || String(e) });
+    } catch (e) {
+        const error = errorParser(e, `[Worker:${pluginName}] Error:`);
+        console.error(error.message);
+        parentPort!.postMessage({ type: 'LOAD_ERROR', error: error.message });
     }
 }
 

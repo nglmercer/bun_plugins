@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { IPlugin } from "../types";
+import { errorParser } from "../utils/errorParser";
 
 export const PluginSchema = z.object({
   name: z.string().min(1, "Plugin name is required"),
@@ -55,13 +56,15 @@ export function validatePlugin(candidate: unknown): ValidationResult {
             const instance = new candidate();
             return validatePluginInstance(instance);
         } catch (e) {
-            return { valid: false, error: "Failed to instantiate plugin class: " + String(e) };
+            const errorplugin = errorParser(e, `Failed to instantiate plugin class:`);
+            return { valid: false, error: errorplugin.message };
         }
     }
 
     return validatePluginInstance(candidate);
   } catch (error) {
-    return { valid: false, error: "Unexpected validation error: " + String(error) };
+    const errorplugin = errorParser(error, `Unexpected validation error:`);
+    return { valid: false, error: errorplugin.message };
   }
 }
 

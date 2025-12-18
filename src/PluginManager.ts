@@ -18,7 +18,7 @@ import { ResourceManager } from "./managers/ResourceManager";
 import { DependencyManager } from "./managers/DependencyManager";
 import { HooksManager } from "./managers/HooksManager";
 import { createPluginContext } from "./managers/ContextFactory";
-
+import { errorParser } from "./utils/errorParser";
 
 export class PluginManager extends EventEmitter {
   private plugins: Map<string, IPlugin> = new Map();
@@ -74,8 +74,9 @@ export class PluginManager extends EventEmitter {
     if (plugin.configSchema) {
         try {
             config = plugin.configSchema.parse(config) as Record<string, any>;
-        } catch (e: any) {
-            console.warn(`[SafeMode] Config validation failed for plugin ${plugin.name}. Using default config. Error: ${e.message}`);
+        } catch (e) {
+            const error = errorParser(e, `Error in plugin ${plugin.name}`);
+            console.warn(`[SafeMode] Using default config, validation failed. Error: ${error.message}`);
         }
     }
 
@@ -96,7 +97,7 @@ export class PluginManager extends EventEmitter {
             await plugin.setup(this.hooksManager.getBuilder(plugin.name));
         } catch (e) {
              console.error(`Error during setup for ${plugin.name}:`, e);
-             throw e;
+             throw errorParser(e, `Error during setup for ${plugin.name}`);
         }
     }
 
@@ -117,7 +118,7 @@ export class PluginManager extends EventEmitter {
       // Cleanup resources directly since plugin is not in this.plugins yet
       this.resources.cleanup(plugin.name, this);
       this.hooksManager.cleanup(plugin.name);
-      throw error;
+      throw errorParser(error, `Failed to load plugin ${plugin.name}`);
     }
   }
 
@@ -184,9 +185,13 @@ export class PluginManager extends EventEmitter {
                             }
                             result = true;
                        }
+                       else if (method === 'manager:getPlugin') {
+                           const targetName = args[0];
+                           const p = this.getPlugin(targetName);
+                           result = p?.getSharedApi ? p.getSharedApi() : undefined;
+                       }
                        else if (method === 'log') {
                            const level = args[0] as 'info' | 'warn' | 'error';
-                           // @ts-ignore
                            console[level](`[${pluginName}]`, ...args.slice(1));
                            result = true;
                        }
@@ -195,8 +200,9 @@ export class PluginManager extends EventEmitter {
                        }
                        
                        worker.postMessage({ id, result });
-                   } catch (e: any) {
-                       worker.postMessage({ id, error: e.message });
+                   } catch (e) {
+                        const error = errorParser(e, `Error in plugin ${pluginName}`);
+                        worker.postMessage({ id, error: error.message });
                    }
                }
                else if (msg.type === 'HOOK_RESULT') {
@@ -216,14 +222,20 @@ export class PluginManager extends EventEmitter {
                    }
                }
               else if (msg.type === 'LOAD_SUCCESS') {
+                   const { metadata } = msg;
                    const proxyPlugin: IPlugin = {
-                       name: pluginName,
-                       version: "0.0.0", 
+                       name: metadata.name,
+                       version: metadata.version || "0.0.0",
+                       description: metadata.description,
+                       author: metadata.author,
                        onLoad: () => {}, 
+                       onStarted: () => {
+                           worker.postMessage({ type: 'START_UP' });
+                       },
                        onUnload: () => worker.terminate(),
                    };
-                   this.plugins.set(pluginName, proxyPlugin);
-                   console.log(`Isolated Plugin ${pluginName} loaded in worker.`);
+                   this.plugins.set(metadata.name, proxyPlugin);
+                   console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);
                    resolve();
               }
               else if (msg.type === 'LOAD_ERROR') {
@@ -457,8 +469,19 @@ export class PluginManager extends EventEmitter {
   enableHotReload(pluginDir: string) {
       console.log(`[HotReload] Watching ${pluginDir} for changes...`);
       watch(pluginDir, { recursive: true }, async (event, filename) => {
-          if (!filename) return;
-          console.log(`[HotReload] Change detected in ${filename}`);
+          if (!filename || (!filename.endsWith(".ts") && !filename.endsWith(".js"))) return;
+          console.log(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);
+          
+          // Small debounce or delay to allow file to be written
+          await new Promise(r => setTimeout(r, 100));
+          
+          // Re-load the directory to pick up new definitions
+          await this.loadPluginsFromDirectory(pluginDir);
+          
+          // Note: loadPluginsFromDirectory currently re-registers plugins if they are not in this.plugins.
+          // If the plugin was already loaded, we might want to force reload.
+          // For now, loadPluginsFromDirectory will log if it skips.
+          // Better: reload individual plugin if we can map filename -> plugin.
       });
   }
 

@@ -32,11 +32,17 @@ export function createPluginContext(
         config,
         // Legacy support
         emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => manager.emit(event, payload),
-        on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => manager.on(event, callback),
+        on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => {
+            manager.on(event, callback);
+            pluginResources.eventListeners.push({ event: event as string, listener: callback });
+        },
         
         events: {
             emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => manager.emit(event, payload),
-            on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => manager.on(event, callback)
+            on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => {
+                manager.on(event, callback);
+                pluginResources.eventListeners.push({ event: event as string, listener: callback });
+            }
         },
 
         getPlugin: (name: string) => {
