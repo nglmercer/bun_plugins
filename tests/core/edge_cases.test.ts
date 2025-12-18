@@ -88,7 +88,12 @@ describe("Edge Cases and Robustness", () => {
                 removeEventListener() {}
                 dispatchEvent() { return true; }
             }
-            global.Worker = MockWorker as any;
+
+            // Inject factory
+            const factory = () => new MockWorker() as any;
+            
+            // Re-instantiate manager with factory
+            manager = new PluginManager(storageRoot, { workerFactory: factory });
 
             const leakingPlugin: IPlugin = {
                 name: "leaky-plugin",
