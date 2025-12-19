@@ -15,27 +15,17 @@ export class ExpressionEngine {
       // Check for template string interpolation first
       if (expression.includes("${")) {
         const interpolated = this.interpolate(expression, context);
-        // If the result is a number-like string, convert it, unless it was a partial interpolation intended to be text
+        // If the result is a number-like string, convert it
         if (!isNaN(Number(interpolated)) && interpolated.trim() !== "") {
             return Number(interpolated);
         }
         return interpolated;
       }
 
-      // Si la expresión contiene solo variables y no operadores matemáticos
-      if (!/[\+\-\*\/\%\(\)\[\]]/.test(expression)) {
-        // Simple variable or value lookup (no math ops)
-        // If it looks like a path, resolve it.
-        return this.evaluateExpression(expression, context);
-      }
-
-      // Preprocesar la expresión para manejar variables y funciones
-      let processedExpression = this.preprocessExpression(expression, context);
-
-      // Evaluar la expresión procesada
-      return this.evaluateMathExpression(processedExpression);
+      // Use the flexible JS evaluator by default to support globals and function calls
+      return this.evaluateExpression(expression, context);
     } catch (error) {
-      console.error(`Error evaluando expresión: ${expression}`, error);
+      console.error(`Error evaluating expression: ${expression}`, error);
       return null;
     }
   }
@@ -64,34 +54,6 @@ export class ExpressionEngine {
       }
     });
   }
-
-  /**
-   * Preprocesa la expresión para reemplazar variables con sus valores reales
-   */
-  private static preprocessExpression(
-    expression: string,
-    context: TriggerContext,
-  ): string {
-    // Reemplazar propiedades del contexto (data.field, globals.var, etc.)
-    let processed = expression.replace(
-      /(?:data|globals|request|computed)\.[a-zA-Z0-9_\.]+/g,
-      (match) => {
-        const value = this.getNestedValue(match, context);
-        return typeof value === "string" ? `"${value}"` : String(value);
-      },
-    );
-
-    // Procesar funciones matemáticas básicas
-    processed = processed.replace(
-      /Math\.(random|floor|ceil|round|sqrt|abs|pow|min|max|sin|cos|tan)\(/g,
-      (match) => {
-        return match;
-      },
-    );
-
-    return processed;
-  }
-
   /**
    * Evalúa una expresión matemática segura usando Function constructor
    */
@@ -129,6 +91,7 @@ export class ExpressionEngine {
         "with(context) { return " + expression + " }",
       )(context);
     } catch (error) {
+      console.error(`ERROR evaluating expression '${expression}':`, error);
       // Si falla, devolver la expresión original
       return expression;
     }

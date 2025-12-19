@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { TriggerUtils } from "../utils/utils";
 import { TriggerLoader } from "../io/loader";
+import { ExpressionEngine } from "./expression-engine";
 
 export type EngineActionHandler = (params: any, context: TriggerContext) => Promise<any> | any;
 
@@ -113,7 +114,7 @@ export class TriggerEngine {
     // Interpolate the expected value if it's a string containing variables
     let expectedValue = c.value;
     if (typeof expectedValue === 'string' && expectedValue.includes('${')) {
-        expectedValue = TriggerUtils.interpolate(expectedValue, context);
+        expectedValue = ExpressionEngine.interpolate(expectedValue, context);
     }
     
     return TriggerUtils.compare(actualValue, c.operator, expectedValue);
@@ -211,7 +212,7 @@ export class TriggerEngine {
     const result: Record<string, any> = {};
     for (const [key, val] of Object.entries(params)) {
       if (typeof val === 'string') {
-        result[key] = TriggerUtils.interpolate(val, context);
+        result[key] = ExpressionEngine.interpolate(val, context);
       } else if (typeof val === 'object' && val !== null) {
         // Recursive?
         // JSON objects might need deep interpolation.
@@ -226,7 +227,7 @@ export class TriggerEngine {
   }
 
   private interpolateDeep(obj: any, context: TriggerContext): any {
-    if (typeof obj === 'string') return TriggerUtils.interpolate(obj, context);
+    if (typeof obj === 'string') return ExpressionEngine.interpolate(obj, context);
     if (Array.isArray(obj)) return obj.map(v => this.interpolateDeep(v, context));
     if (typeof obj === 'object' && obj !== null) {
         const res: any = {};
