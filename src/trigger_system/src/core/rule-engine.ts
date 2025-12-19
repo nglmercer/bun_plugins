@@ -162,6 +162,15 @@ export class RuleEngine {
           return isNaN(d.getTime()) ? 0 : d.getTime();
       };
 
+      // Helper for Safe Numeric comparisons
+      // Returns null if values are not strictly comparable as numbers (prevents null -> 0 coercion)
+      const getSafeNumber = (val: any): number | null => {
+          if (typeof val === 'number') return val;
+          if (val === null || val === undefined || val === '') return null;
+          const num = Number(val);
+          return isNaN(num) ? null : num;
+      };
+
       // Evaluar según el operador
       switch (condition.operator) {
         case "EQ":
@@ -173,20 +182,32 @@ export class RuleEngine {
           return fieldValue != targetValue;
 
         case "GT":
-        case ">":
-          return Number(fieldValue) > Number(targetValue);
+        case ">": {
+          const nField = getSafeNumber(fieldValue);
+          const nTarget = getSafeNumber(targetValue);
+          return (nField !== null && nTarget !== null) && nField > nTarget;
+        }
 
         case "GTE":
-        case ">=":
-          return Number(fieldValue) >= Number(targetValue);
+        case ">=": {
+          const nField = getSafeNumber(fieldValue);
+          const nTarget = getSafeNumber(targetValue);
+          return (nField !== null && nTarget !== null) && nField >= nTarget;
+        }
 
         case "LT":
-        case "<":
-          return Number(fieldValue) < Number(targetValue);
+        case "<": {
+          const nField = getSafeNumber(fieldValue);
+          const nTarget = getSafeNumber(targetValue);
+          return (nField !== null && nTarget !== null) && nField < nTarget;
+        }
 
         case "LTE":
-        case "<=":
-          return Number(fieldValue) <= Number(targetValue);
+        case "<=": {
+          const nField = getSafeNumber(fieldValue);
+          const nTarget = getSafeNumber(targetValue);
+          return (nField !== null && nTarget !== null) && nField <= nTarget;
+        }
 
         case "CONTAINS":
           return String(fieldValue).includes(String(targetValue));
@@ -211,7 +232,8 @@ export class RuleEngine {
 
         case "RANGE": // Special Case: Value should be [min, max]
              if (Array.isArray(targetValue) && targetValue.length === 2) {
-                 return Number(fieldValue) >= Number(targetValue[0]) && Number(fieldValue) <= Number(targetValue[1]);
+                 const nField = getSafeNumber(fieldValue);
+                 return nField !== null && nField >= Number(targetValue[0]) && nField <= Number(targetValue[1]);
              }
              return false;
 
@@ -305,7 +327,11 @@ export class RuleEngine {
         if (handler) {
             result = await handler(action, context);
         } else {
-             console.warn(`Tipo de acción genérica o desconocida: ${action.type}`);
+             const msg = `Tipo de acción genérica o desconocida: ${action.type}`;
+             if (this.config.globalSettings.strictActions) {
+                 throw new Error(msg);
+             }
+             console.warn(msg);
              result = { warning: `Generic action executed: ${action.type}` };
         }
 

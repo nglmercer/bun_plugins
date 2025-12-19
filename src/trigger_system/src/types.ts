@@ -82,6 +82,7 @@ export interface TriggerContext {
   timestamp: number;
   // The data payload of the event
   data: Record<string, any>;
+  id?: string;
   // Global variables (env vars, server state)
   globals?: Record<string, any>;
   // Dynamic State (counters, flags, goals)
@@ -107,6 +108,7 @@ export interface RuleEngineConfig {
   globalSettings: {
     debugMode?: boolean;
     evaluateAll?: boolean; // If false, stop after first successful rule
+    strictActions?: boolean; // If true, throws error on unknown actions instead of warning
   };
 }
 

@@ -1,7 +1,3 @@
-# Example Rules: Robustness & Data Handling
-
-# 1. Handling potentially missing data
-# Use || syntax in interpolation to provide defaults.
 - id: welcome-user
   on: USER_JOINED
   do:
@@ -9,8 +5,6 @@
     params:
       message: "Welcome, ${data.username || 'Guest'}!"
 
-# 2. Check for missing data in conditions
-# If data.role is missing/undefined, it won't equal "admin".
 - id: admin-check
   on: COMMAND
   if:
@@ -23,7 +17,6 @@
       command: "echo Admin Command Executed"
       safe: true
 
-# 3. Using State Persistence (Counter)
 - id: global-counter
   on: ANY_EVENT
   do:
@@ -31,11 +24,9 @@
     params:
       key: global_event_count
 
-# 4. Complex Logic with Fallbacks
 - id: complex-fallback
   on: ALERT
   do:
     type: log
     params:
-      # Access nested property safely. If data.server is null, this defaults to 'Unknown'.
       message: "Alert on server: ${data.server && data.server.name ? data.server.name : 'Unknown'}"
