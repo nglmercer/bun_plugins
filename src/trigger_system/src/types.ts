@@ -85,6 +85,9 @@ export interface TriggerContext {
   helpers?: Record<string, Function>;
 }
 
+export interface TriggerResult {
+  ruleId: string;
+  success: boolean;
   executedActions: {
     type: string;
     result?: any;

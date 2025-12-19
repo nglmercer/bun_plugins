@@ -209,7 +209,10 @@ export class RuleEngine {
       // Pick one randomly
       // Support probability later, for now uniform
       const randomIndex = Math.floor(Math.random() * actionList.length);
-      actionList = [actionList[randomIndex]];
+      const selectedAction = actionList[randomIndex];
+      if (selectedAction) {
+          actionList = [selectedAction];
+      }
     }
 
     // Execute

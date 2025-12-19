@@ -1,78 +1,70 @@
-// src/trigger_system/validator.ts
-import { z } from "zod";
+// src/domain/validator.ts
+import { type, scope } from "arktype";
+import type { TriggerRule } from "../types";
 
-// --- Zod Schemas ---
+// --- ArkType Scope & Schemas ---
 
-export const ComparisonOperatorSchema = z.enum([
-  'EQ', '==',
-  'NEQ', '!=',
-  'GT', '>',
-  'GTE', '>=',
-  'LT', '<',
-  'LTE', '<=',
-  'IN',
-  'NOT_IN',
-  'CONTAINS',
-  'MATCHES',
-  'RANGE'
-]);
+// Define a Validation Scope to handle recursive types and mutual dependencies
+const types = scope({
+    // List of allowed operators
+    Operator: "'EQ' | '==' | 'NEQ' | '!=' | 'GT' | '>' | 'GTE' | '>=' | 'LT' | '<' | 'LTE' | '<=' | 'IN' | 'NOT_IN' | 'CONTAINS' | 'MATCHES' | 'RANGE'",
+    
+    Condition: {
+        field: "string > 0", // Must not be empty
+        operator: "Operator",
+        value: "unknown"
+    },
+    
+    ConditionGroup: {
+        operator: "'AND' | 'OR'",
+        // Recursive reference to Condition or ConditionGroup
+        conditions: "(Condition | ConditionGroup)[] >= 1" // Must have at least 1 condition
+    },
+    
+    RuleCondition: "Condition | ConditionGroup",
 
-export const ConditionSchema = z.object({
-  field: z.string().describe("The field path to check (e.g. data.amount)"),
-  operator: ComparisonOperatorSchema,
-  value: z.any().describe("The value to compare against")
-});
+    Action: {
+        type: "string > 0", // Must define a type
+        "params?": "object", // Must be an object if present
+        "delay?": "number.integer >= 0", // Integer check for milliseconds
+        "probability?": "0 <= number <= 1"
+    },
 
-export const ConditionGroupSchema = z.object({
-  operator: z.enum(['AND', 'OR']),
-  conditions: z.array(z.lazy(() => z.union([ConditionSchema, ConditionGroupSchema])))
-});
+    ActionGroup: {
+        "mode?": "'ALL' | 'EITHER' | 'SEQUENCE'",
+        actions: "Action[] >= 1" // Empty group is useless
+    },
 
-// Recursive union for conditions
-export const RuleConditionSchema = z.union([ConditionSchema, ConditionGroupSchema]);
+    TriggerRule: {
+        id: "string > 0",
+        "name?": "string",
+        "description?": "string",
+        "priority?": "number.integer", // Priority is integer
+        "enabled?": "boolean",
+        "cooldown?": "number.integer >= 0", // Milliseconds
+        "tags?": "string[]",
+        on: "string > 0", // Non-empty event name
+        
+        "if?": "RuleCondition | RuleCondition[]",
+        
+        do: "Action | Action[] | ActionGroup"
+    }
+}).export();
 
-export const ActionSchema = z.object({
-  type: z.string().describe("The action type identifier"),
-  params: z.record(z.any()).optional().default({}),
-  delay: z.number().optional().min(0),
-  probability: z.number().min(0).max(1).optional()
-});
-
-export const ActionGroupSchema = z.object({
-  mode: z.enum(['ALL', 'EITHER', 'SEQUENCE']).default('ALL'),
-  actions: z.array(ActionSchema)
-});
-
-export const TriggerRuleSchema = z.object({
-  id: z.string(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  priority: z.number().optional().default(0),
-  enabled: z.boolean().optional().default(true),
-  cooldown: z.number().min(0).optional(),
-  tags: z.array(z.string()).optional(),
-  
-  on: z.string({
-    invalid_type_error: "Event name 'on' must be a string. If using YAML, ensure it is quoted: 'on': \"EventName\""
-  }),
-  
-  if: z.union([
-    RuleConditionSchema, 
-    z.array(RuleConditionSchema)
-  ]).optional(),
-  
-  do: z.union([
-    ActionSchema, 
-    z.array(ActionSchema), 
-    ActionGroupSchema
-  ])
-});
+// Export individual schemas for external usage if needed
+export const ComparisonOperatorSchema = types.Operator;
+export const ConditionSchema = types.Condition;
+export const ConditionGroupSchema = types.ConditionGroup;
+export const RuleConditionSchema = types.RuleCondition;
+export const ActionSchema = types.Action;
+export const ActionGroupSchema = types.ActionGroup;
+export const TriggerRuleSchema = types.TriggerRule;
 
 // --- Validation Result Types ---
 
 export interface ValidationSuccess {
   valid: true;
-  rule: z.infer<typeof TriggerRuleSchema>;
+  rule: TriggerRule;
 }
 
 export interface ValidationIssue {
@@ -94,34 +86,45 @@ export type ValidationResult = ValidationSuccess | ValidationFailure;
 export class TriggerValidator {
   
   static validate(data: any): ValidationResult {
-    const result = TriggerRuleSchema.safeParse(data);
+    // ArkType validation
+    const out = TriggerRuleSchema(data);
 
-    if (result.success) {
-      // Additional Logic Checks can go here (warns)
-      return { valid: true, rule: result.data };
-    } else {
-      const issues: ValidationIssue[] = result.error.errors.map(err => {
-        const path = err.path.join(".");
-        
-        let message = err.message;
-        let suggestion = undefined;
+    if (out instanceof type.errors) {
+      const issues: ValidationIssue[] = [];
+      
+      // Iterate over problems (ArkType specific)
+      for (const problem of out) {
+          const path = problem.path.join(".");
+          let message = problem.message;
+          let suggestion = undefined;
 
-        // Custom Error Enhancements
-        if (path.endsWith("on") && err.code === "invalid_type") {
-            message = "The 'on' field is incorrect.";
-            suggestion = "In YAML, 'on' is a boolean keyword (true). Quote it: \"on\": \"EventName\"";
-        }
-        
-        return {
-          path,
-          message,
-          suggestion,
-          severity: "error"
-        };
-      });
+          // Custom Error Enhancements (replicating Zod logic)
+          // ArkType error for missing string might differ, typically says "must be a string"
+          if (path.endsWith("on") && (message.includes("string") || message.includes("must be"))) {
+               // Heuristic check if it failed because it was interpretted as boolean 'true' in YAML
+               // We can't see the original value easily here without checking 'data' at path
+               // But we can just suggest it generally.
+               if (typeof data === 'object' && data && data.on === true) {
+                   message = "The 'on' field is incorrect (boolean true found).";
+                   suggestion = "In YAML, 'on' is a boolean keyword (true). Quote it: \"on\": \"EventName\"";
+               } else {
+                   // Generic suggestion
+                   suggestion = "Ensure 'on' is a string event name.";
+               }
+          }
+
+          issues.push({
+              path,
+              message,
+              suggestion,
+              severity: "error"
+          });
+      }
 
       return { valid: false, issues };
     }
+
+    return { valid: true, rule: out as TriggerRule };
   }
 
   /**
