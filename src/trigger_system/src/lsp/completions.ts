@@ -162,15 +162,14 @@ const SNIPPETS: CompletionItem[] = [
 export function getCompletionItems(document: TextDocument, position: Position): CompletionItem[] {
     const text = document.getText();
     const doc = parseDocument(text);
-    const line = text.split('\n')[position.line] || '';
+    const lines = text.split('\n');
+    const line = lines[position.line] || '';
     const offset = document.offsetAt(position);
-    console.log(`LSP: line="${line}", char=${position.character}, offset=${offset}`);
     
     // 1. Check if we are in a VALUE position (after colon)
     const colonIndex = line.indexOf(':');
     if (colonIndex !== -1 && position.character > colonIndex) {
         const key = line.substring(0, colonIndex).trim().replace(/^- /, '');
-        console.log(`LSP: entering value completions for key="${key}"`);
         const path = findPathAtOffset(doc.contents, offset) || [];
         return getValueCompletionsByKey(key, path);
     }

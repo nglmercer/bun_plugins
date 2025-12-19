@@ -49,3 +49,7 @@ Enables **Stateful Logic**. Unlike simple "If This Then That" engines, this syst
 ### 5. Action Registry (`src/core/action-registry.ts`)
 
 A plugin system for actions. The core system knows nothing about "Discord Webhooks" or "Minecraft Commands". These are registered by the host application at runtime, keeping the core pure.
+
+### 6. Developer Tooling (`src/lsp`)
+
+To ensure high-quality rule development, the system includes a **Language Server Protocol (LSP)** implementation. This component shares the same validation logic as the core engine (via ArkType), providing a unified validation experience between rule authoring and runtime execution.

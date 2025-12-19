@@ -63,3 +63,13 @@ const context = {
 const results = await engine.processEvent(context);
 console.log(results);
 ```
+
+## Developer Experience (LSP)
+
+For a superior development experience, use the built-in **LSP Server**. It provides:
+
+- **Auto-completion** for all keys and enum values (like `mode` or `operator`).
+- **Real-time validation** with descriptive error messages.
+- **Snippets** for common rule structures.
+
+See our [Developer Tools Guide](./developer_tools.md) for setup instructions.

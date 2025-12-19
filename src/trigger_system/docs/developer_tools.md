@@ -36,8 +36,10 @@ A standards-compliant LSP server is included for editor integration (e.g., VS Co
 **Features:**
 
 - **Diagnostics**: Reports schema errors directly in the editor with red squiggles.
-- **Suggestions**: Provides hints for fixing errors (e.g. "Did you mean 'field'?").
-- **Incremental Sync**: Validates as you type.
+- **Intelligent Autocompletion**: Context-aware suggestions for keys (root, conditions, actions) and values (enums like `mode`, events, and operator lists).
+- **Smart Snippets**: Rapid rule creation with tab-completable templates for full `trigger_rule`, `log_action`, and `condition_nested`.
+- **Dynamic Value Suggestions**: Inline suggestions for `${data.}`, `${state.}`, and `${globals.}` variables.
+- **Incremental Sync**: Validates and provides suggestions as you type.
 
 ### VS Code Integration
 
