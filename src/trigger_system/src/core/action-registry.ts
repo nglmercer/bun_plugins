@@ -1,5 +1,6 @@
 import type { TriggerAction, TriggerContext } from "../types";
 import { ExpressionEngine } from "./expression-engine";
+import { StateManager } from "./state-manager";
 
 export type ActionHandler = (action: TriggerAction, context: TriggerContext) => Promise<any> | any;
 
@@ -100,6 +101,43 @@ export class ActionRegistry {
         } catch (error) {
             return { url, method, error: String(error) };
         }
+    });
+
+
+    // --- State Actions ---
+
+    this.register("STATE_SET", (action, context) => {
+        const key = action.params?.key;
+        const value = action.params?.value;
+        if (!key) return { error: "Missing key for STATE_SET" };
+        
+        // Evaluate value if it's dynamic
+        let finalValue = value;
+        if (typeof value === 'string' && value.includes('${')) {
+            finalValue = ExpressionEngine.interpolate(value, context);
+        }
+
+        StateManager.getInstance().set(key, finalValue);
+        return { key, value: finalValue };
+    });
+
+    this.register("STATE_INCREMENT", (action, context) => {
+        const key = action.params?.key;
+        const amount = Number(action.params?.amount) || 1;
+        if (!key) return { error: "Missing key for STATE_INCREMENT" };
+
+        const newValue = StateManager.getInstance().increment(key, amount);
+        return { key, newValue };
+    });
+
+    this.register("EMIT_EVENT", (action, context) => {
+         // This action is special. The engine or host must handle the result 
+         // and feed it back if desired. 
+         // We simply return the instruction to emit.
+         return { 
+             event: action.params?.event, 
+             payload: action.params?.data || {} 
+         };
     });
   }
 }

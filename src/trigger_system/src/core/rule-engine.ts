@@ -17,6 +17,7 @@ import { ExpressionEngine } from "../core/expression-engine";
 
 
 import { ActionRegistry } from "./action-registry";
+import { StateManager } from "./state-manager";
 
 export class RuleEngine {
   private rules: TriggerRule[] = [];
@@ -36,6 +37,9 @@ export class RuleEngine {
    */
   async evaluateContext(context: TriggerContext): Promise<TriggerResult[]> {
     const results: TriggerResult[] = [];
+    
+    // Inject current state into context
+    context.state = StateManager.getInstance().getAll();
 
     if (this.config.globalSettings.debugMode) {
       console.log(

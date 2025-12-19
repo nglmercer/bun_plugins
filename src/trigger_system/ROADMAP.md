@@ -42,16 +42,23 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 - [x] **Context Adapters**: Create standard adapters to normalize external events into `TriggerContext`.
 - [x] **Action Registry**: A dynamic way to register action handlers.
 
+### B. Stateful & Dynamic Logic (Goals, Repetition)
+
+- [ ] **State Manager**: In-memory store for counters, flags, and sequences.
+- [ ] **State Actions**: `INCREMENT`, `SET`, `RESET` actions to modify state.
+- [ ] **Dynamic Map**: Bind events to state updates to creating "Combo" or "Goal" triggers.
+
 ### B. Robustness & Validation
 
 - [x] Migrate to ArkType (Completed).
 - [x] **Strict Typing**: Ensure `params` in Actions match the specific Action Type's schema.
-- [ ] **Circular Dependency Detection**: Prevent rule loops.
+- [x] **Strict Typing**: Ensure `params` in Actions match the specific Action Type's schema.
+- [x] **Circular Dependency Detection**: Prevent rule loops.
 
 ### C. Developer Experience
 
-- [ ] **CLI Tool**: `bun run validate-rules` to check YAML files during CI/CD.
-- [ ] **Visualizer**: A simple web view to generate diagrams of complex rule chains.
+- [x] **CLI Tool**: `bun run validate-rules` to check YAML files during CI/CD.
+- [x] **Language Server (LSP)**: Integrated validation for VS Code.
 
 ## 4. Architecture Standards
 

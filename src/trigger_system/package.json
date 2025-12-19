@@ -4,7 +4,9 @@
   "scripts": {
     "type-check": "tsc --noEmit",
     "build": "tsc",
-    "test": "bun test"
+    "test": "bun test",
+    "validate": "bun run src/cli/validate.ts",
+    "lsp": "bun run src/lsp/server.ts --stdio"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -13,6 +15,9 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "arktype": "^2.1.29"
+    "arktype": "^2.1.29",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "yaml": "^2.8.2"
   }
 }

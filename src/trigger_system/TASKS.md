@@ -2,7 +2,7 @@
 
 ## Active
 
-- [ ] **CLI Tool**: `bun run validate-rules`.
+- [ ] (None)
 
 ## Completed
 
@@ -14,5 +14,11 @@
   - Added Date operators (`SINCE`, `BEFORE`, `AFTER`, `UNTIL`).
   - Added Regex support (`MATCHES`).
 - [x] **Context Adapters**: Implemented `ContextAdapter` in `src/core/context-adapter.ts`.
+- [x] **State Manager**: Support for `state` in Context (`src/core/state-manager.ts`) and state-modifying actions (`STATE_SET`, `STATE_INCREMENT`).
+
+- [x] **Validator Refactor**: Migrated to ArkType for optimized, recursive schema validation (`src/domain/validator.ts`).
 - [x] **Validator Refactor**: Migrated to ArkType for optimized, recursive schema validation (`src/domain/validator.ts`).
 - [x] **Verification V2**: Confirmed new features (Custom Actions, Dynamic Values, Date Ops, Regex) with `tests/verification_v2.test.ts`.
+- [x] **CLI Tool**: Implemented `src/cli/validate.ts` and `bun run validate`.
+- [x] **Circular Dependency Check**: Implemented `src/core/dependency-graph.ts` static analyzer.
+- [x] **LSP Server**: Implemented `src/lsp/server.ts` for editor integration.
