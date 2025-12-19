@@ -73,12 +73,14 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 
 - [x] **Persistence Layer**: Implemented `PersistenceAdapter` interface and `InMemoryPersistence` (`src/core/persistence.ts`).
 - [x] **Event Queue**: Implemented `EventQueue` for high-load buffering (`src/core/event-queue.ts`).
-- [ ] **Persistence Implementation**: Add real SQLite/Redis implementations.
+- [x] **File Persistence**: Implemented `FilePersistence` for Node.js (`src/core/persistence-file.ts`).
+- [x] **Browser Persistence**: Implemented `BrowserPersistence` for LocalStorage (`src/core/persistence-browser.ts`).
 
 ### B. Advanced Features
 
 - [ ] **Standard Library**: Built-in modules for common triggers (HTTP Webhook, Cron/Timer, File Watch).
 - [ ] **Advanced Plugin System**: Support `conditions`, `event_sources`, and life-cycle hooks in plugins.
+- [ ] **Browser Playground**: Verify web compatibility and create a playground demo.
 
 ### C. Documentation
 

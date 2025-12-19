@@ -1,6 +1,6 @@
-import { Glob } from "bun";
 import * as path from "path";
-import { watch } from "fs";
+import * as fs from "fs";
+import { parse } from "yaml";
 import type { TriggerRule } from "../types";
 import { TriggerValidator } from "../domain/validator";
 
@@ -11,16 +11,29 @@ export class TriggerLoader {
    */
   static async loadRulesFromDir(dirPath: string): Promise<TriggerRule[]> {
     const rules: TriggerRule[] = [];
-    // Glob for .yaml and .yml files
-    const glob = new Glob("**/*.{yaml,yml}");
+    
+    // Recursive walker function
+    const walk = async (dir: string) => {
+        const files = await fs.promises.readdir(dir, { withFileTypes: true });
+        for (const dirent of files) {
+            const res = path.resolve(dir, dirent.name);
+            if (dirent.isDirectory()) {
+                await walk(res);
+            } else if (res.endsWith('.yaml') || res.endsWith('.yml')) {
+                try {
+                    const loaded = await this.loadRule(res);
+                    rules.push(...loaded);
+                } catch (err) {
+                    console.error(`Failed to load rule from ${res}:`, err);
+                }
+            }
+        }
+    };
 
-    for await (const file of glob.scan({ cwd: dirPath, absolute: true })) {
-      try {
-        const loadedRules = await this.loadRule(file);
-        rules.push(...loadedRules);
-      } catch (err) {
-        console.error(`Failed to load rule from ${file}:`, err);
-      }
+    if (fs.existsSync(dirPath)) {
+        await walk(dirPath);
+    } else {
+        console.warn(`[TriggerLoader] Directory not found: ${dirPath}`);
     }
 
     return rules;
@@ -31,14 +44,13 @@ export class TriggerLoader {
    */
   static async loadRule(filePath: string): Promise<TriggerRule[]> {
     try {
-      const file = Bun.file(filePath);
-      const content = await file.text();
+      const content = await fs.promises.readFile(filePath, 'utf-8');
       
-      const data = Bun.YAML.parse(content);
+      const data = parse(content);
       const docs = Array.isArray(data) ? data : [data];
       const rules: TriggerRule[] = [];
 
-      docs.forEach((doc, index) => {
+      docs.forEach((doc: any, index: number) => {
         // Normalize 'actions' to 'do' alias
         if (doc && typeof doc === 'object' && doc.actions && !doc.do) {
             doc.do = doc.actions;
@@ -83,9 +95,9 @@ export class TriggerLoader {
 
     console.log(`[TriggerLoader] Watching for changes in ${dirPath}...`);
 
-    const watcher = watch(dirPath, { recursive: true }, async (event, filename) => {
+    const watcher = fs.watch(dirPath, { recursive: true }, async (event, filename) => {
       // Check if it's a YAML file
-      if (filename && (filename.endsWith('.yaml') || filename.endsWith('.yml'))) {
+      if (filename && (String(filename).endsWith('.yaml') || String(filename).endsWith('.yml'))) {
         console.log(`[TriggerLoader] Detected change in ${filename} (${event}). Reloading rules...`);
         
         try {

@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "type-check": "tsc --noEmit",
-    "build": "tsc",
+    "build": "bun run build:node && bun run build:browser",
+    "build:node": "bun build src/index.ts --outdir dist/node --target node --minify --sourcemap=external",
+    "build:browser": "bun build src/index.browser.ts --outdir dist/browser --target browser --minify --sourcemap=external",
     "test": "bun test",
     "validate": "bun run src/cli/validate.ts",
     "lsp": "bun run src/lsp/server.ts --stdio"
