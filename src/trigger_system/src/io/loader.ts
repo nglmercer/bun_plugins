@@ -56,6 +56,15 @@ export class TriggerLoader {
       
       // Support multi-document YAML
       const yamlDocs = parseAllDocuments(content);
+      
+      // Check for parsing errors
+      for (const doc of yamlDocs) {
+          // In some yaml versions errors is an array on the doc
+          if (doc.errors && doc.errors.length > 0) {
+             throw new Error(`YAML syntax error in ${filePath}: ${doc.errors.map(e => e.message).join(', ')}`);
+          }
+      }
+
       const docs = yamlDocs.map(doc => doc.toJS());
       
       const rules: TriggerRule[] = [];

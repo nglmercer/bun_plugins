@@ -32,7 +32,7 @@ You can modify state using built-in actions:
 
 Trigger an action only after an event has happened X times.
 
-**Rule 1: Increment Counter**
+#### **Rule 1: Increment Counter**
 
 ```yaml
 id: "count-clicks"
@@ -43,7 +43,7 @@ do:
     key: "clicks"
 ```
 
-**Rule 2: Check Goal**
+#### **Rule 2: Check Goal**
 
 ```yaml
 id: "goal-reached"
@@ -63,7 +63,7 @@ do:
 
 Trigger only if Event A happened, then Event B happens.
 
-**Rule A: Set Flag**
+#### **Rule A: Set Flag**
 
 ```yaml
 id: "step-1"
@@ -75,7 +75,7 @@ do:
     value: "A"
 ```
 
-**Rule B: Check Flag**
+#### **Rule B: Check Flag**
 
 ```yaml
 id: "step-2"

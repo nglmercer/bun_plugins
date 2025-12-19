@@ -22,17 +22,13 @@ describe("TriggerLoader Error Handling", () => {
 
     test("Should throw/fail gracefully on bad YAML syntax", async () => {
         const filePath = path.join(incorrectDir, "bad_syntax.yaml");
-        
+        let error;
         try {
             await TriggerLoader.loadRule(filePath);
-            // If it doesn't throw, we might check if it returns empty, 
-            // but loader implementation currently re-throws error for parse issues.
-            // If the loader suppresses it, this test might need adjustment.
-            // Based on code: `throw error;` catch block exists.
-            expect(true).toBe(false); // Should have thrown
         } catch (e) {
-            expect(e).toBeDefined();
+            error = e;
         }
+        expect(error).toBeDefined();
     });
 
     test("loadRulesFromDir should skip invalid files but load valid ones (if any)", async () => {
