@@ -6,8 +6,9 @@ import type { TriggerRule } from "../types";
 
 // Define a Validation Scope to handle recursive types and mutual dependencies
 const types = scope({
+
     // List of allowed operators
-    Operator: "'EQ' | '==' | 'NEQ' | '!=' | 'GT' | '>' | 'GTE' | '>=' | 'LT' | '<' | 'LTE' | '<=' | 'IN' | 'NOT_IN' | 'CONTAINS' | 'MATCHES' | 'RANGE'",
+    Operator: "'EQ' | '==' | 'NEQ' | '!=' | 'GT' | '>' | 'GTE' | '>=' | 'LT' | '<' | 'LTE' | '<=' | 'IN' | 'NOT_IN' | 'CONTAINS' | 'MATCHES' | 'RANGE' | 'SINCE' | 'AFTER' | 'BEFORE' | 'UNTIL'",
     
     Condition: {
         field: "string > 0", // Must not be empty

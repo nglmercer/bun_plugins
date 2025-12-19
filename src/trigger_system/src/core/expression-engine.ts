@@ -9,11 +9,24 @@ export class ExpressionEngine {
    * Evalúa una expresión matemática simple o una interpolación de variables
    * Soporta operadores: +, -, *, /, %, **, y funciones matemáticas básicas
    */
+
   static evaluate(expression: string, context: TriggerContext): any {
     try {
+      // Check for template string interpolation first
+      if (expression.includes("${")) {
+        const interpolated = this.interpolate(expression, context);
+        // If the result is a number-like string, convert it, unless it was a partial interpolation intended to be text
+        if (!isNaN(Number(interpolated)) && interpolated.trim() !== "") {
+            return Number(interpolated);
+        }
+        return interpolated;
+      }
+
       // Si la expresión contiene solo variables y no operadores matemáticos
-      if (!/[\+\-\*\/\%\(\)\[\]\.]/.test(expression)) {
-        return this.interpolate(expression, context);
+      if (!/[\+\-\*\/\%\(\)\[\]]/.test(expression)) {
+        // Simple variable or value lookup (no math ops)
+        // If it looks like a path, resolve it.
+        return this.evaluateExpression(expression, context);
       }
 
       // Preprocesar la expresión para manejar variables y funciones

@@ -27,7 +27,10 @@ export type ComparisonOperator =
   | 'IN'           // Value in Array
   | 'NOT_IN'       // Value not in Array
   | 'CONTAINS'     // String/Array contains
+
   | 'MATCHES'      // Regex match
+  | 'SINCE' | 'AFTER'   // Date >= Value
+  | 'BEFORE' | 'UNTIL'  // Date < Value
   | 'RANGE';       // Number in range [min, max]
 
 export interface Condition {

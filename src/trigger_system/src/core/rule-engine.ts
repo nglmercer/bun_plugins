@@ -15,16 +15,20 @@ import type {
 } from "../types";
 import { ExpressionEngine } from "../core/expression-engine";
 
+
+import { ActionRegistry } from "./action-registry";
+
 export class RuleEngine {
   private rules: TriggerRule[] = [];
   private config: RuleEngineConfig;
   private lastExecutionTimes: Map<string, number> = new Map();
+  private actionRegistry: ActionRegistry;
 
   constructor(config: RuleEngineConfig) {
     this.config = config;
     this.rules = [...config.rules];
-    // Ordenar reglas por prioridad
     this.rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    this.actionRegistry = ActionRegistry.getInstance();
   }
 
   /**
@@ -123,6 +127,7 @@ export class RuleEngine {
     }
   }
 
+
   /**
    * Evalúa una condición individual
    */
@@ -137,43 +142,74 @@ export class RuleEngine {
         context,
       );
 
+      // Process condition.value - if it's a string, try to interpolate it
+      // This allows comparing field: "data.amount" with value: "${globals.threshold}"
+      let targetValue = condition.value;
+      if (typeof targetValue === 'string' && (targetValue.includes('${') || targetValue.startsWith('data.') || targetValue.startsWith('globals.'))) {
+          // If it looks like an expression or variable reference, evaluate it
+          targetValue = ExpressionEngine.evaluate(targetValue, context);
+      }
+
+      // Helper for Date comparisons
+      const getDate = (val: any) => {
+          if (val instanceof Date) return val.getTime();
+          if (typeof val === 'number') return val;
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? 0 : d.getTime();
+      };
+
       // Evaluar según el operador
       switch (condition.operator) {
         case "EQ":
         case "==":
-          return fieldValue === condition.value;
+          return fieldValue == targetValue; // Loose equality for flexibility
 
         case "NEQ":
         case "!=":
-          return fieldValue !== condition.value;
+          return fieldValue != targetValue;
 
         case "GT":
         case ">":
-          return Number(fieldValue) > Number(condition.value);
+          return Number(fieldValue) > Number(targetValue);
 
         case "GTE":
         case ">=":
-          return Number(fieldValue) >= Number(condition.value);
+          return Number(fieldValue) >= Number(targetValue);
 
         case "LT":
         case "<":
-          return Number(fieldValue) < Number(condition.value);
+          return Number(fieldValue) < Number(targetValue);
 
         case "LTE":
         case "<=":
-          return Number(fieldValue) <= Number(condition.value);
+          return Number(fieldValue) <= Number(targetValue);
 
         case "CONTAINS":
-          return String(fieldValue).includes(String(condition.value));
+          return String(fieldValue).includes(String(targetValue));
         
         case "MATCHES":
-          return new RegExp(condition.value).test(String(fieldValue));
+          return new RegExp(String(targetValue)).test(String(fieldValue));
         
         case "IN":
-          return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+          return Array.isArray(targetValue) && targetValue.includes(fieldValue);
 
         case "NOT_IN":
-          return Array.isArray(condition.value) && !condition.value.includes(fieldValue);
+          return Array.isArray(targetValue) && !targetValue.includes(fieldValue);
+        
+        // Date operators
+        case "SINCE": // field >= value (Chronologically after or same)
+        case "AFTER":
+           return getDate(fieldValue) >= getDate(targetValue);
+        
+        case "BEFORE": // field < value
+        case "UNTIL":
+           return getDate(fieldValue) < getDate(targetValue);
+
+        case "RANGE": // Special Case: Value should be [min, max]
+             if (Array.isArray(targetValue) && targetValue.length === 2) {
+                 return Number(fieldValue) >= Number(targetValue[0]) && Number(fieldValue) <= Number(targetValue[1]);
+             }
+             return false;
 
         default:
           console.error(`Operador desconocido: ${condition.operator}`);
@@ -238,6 +274,7 @@ export class RuleEngine {
     return 'mode' in action && 'actions' in action;
   }
 
+
   private async executeSingleAction(
     action: TriggerAction,
     context: TriggerContext,
@@ -258,29 +295,14 @@ export class RuleEngine {
     }
 
     try {
+        const handler = this.actionRegistry.get(action.type);
         let result;
 
-        switch (action.type) {
-          case "response":
-            result = this.executeResponseAction(action, context);
-            break;
-
-          case "log":
-            result = this.executeLogAction(action, context);
-            break;
-
-          case "execute":
-            result = await this.executeExecuteAction(action, context);
-            break;
-
-          case "forward":
-            result = await this.executeForwardAction(action, context);
-            break;
-
-          default:
-            // Generic handler or error
-            console.warn(`Tipo de acción genérica o desconocida: ${action.type}`);
-            result = { warning: `Generic action executed: ${action.type}` };
+        if (handler) {
+            result = await handler(action, context);
+        } else {
+             console.warn(`Tipo de acción genérica o desconocida: ${action.type}`);
+             result = { warning: `Generic action executed: ${action.type}` };
         }
 
         return {
@@ -298,127 +320,6 @@ export class RuleEngine {
       }
   }
 
-  /**
-   * Ejecuta una acción de tipo respuesta
-   */
-  private executeResponseAction(
-    action: TriggerAction,
-    context: TriggerContext,
-  ): any {
-    // Interpolar variables en el contenido
-    // Assuming params has content for legacy or new structure
-    const contentTemplate = action.params?.content || action.params?.body || "";
-    const content = ExpressionEngine.interpolate(contentTemplate, context);
-
-    return {
-      type: "response",
-      statusCode: action.params?.statusCode || 200,
-      headers: action.params?.headers || {
-        "Content-Type": "application/json",
-      },
-      body: content,
-    };
-  }
-
-  /**
-   * Ejecuta una acción de tipo log
-   */
-  private executeLogAction(
-    action: TriggerAction,
-    context: TriggerContext,
-  ): any {
-    const messageTemplate = action.params?.message || action.params?.content || "Log Trigger";
-    const message = ExpressionEngine.interpolate(messageTemplate, context);
-
-    console.log(`[TriggerLog] ${message}`);
-
-    return {
-      type: "log",
-      message,
-    };
-  }
-
-  /**
-   * Ejecuta una acción de tipo ejecución de comando
-   */
-  private async executeExecuteAction(
-    action: TriggerAction,
-    context: TriggerContext,
-  ): Promise<any> {
-    const commandTemplate = action.params?.command || action.params?.content || "";
-    const command = ExpressionEngine.interpolate(commandTemplate, context);
-
-    if (!action.params?.safe) {
-      console.warn(`[Trigger] Ejecutando comando no seguro: ${command}`);
-    }
-
-    try {
-      const proc = Bun.spawn(command.split(" "), {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      const [stdout, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-      ]);
-
-      return {
-        type: "execute",
-        command,
-        stdout,
-        stderr,
-        exitCode: await proc.exited,
-      };
-    } catch (error) {
-      return {
-        type: "execute",
-        command,
-        error: String(error),
-      };
-    }
-  }
-
-  /**
-   * Ejecuta una acción de tipo reenvío a otro endpoint
-   */
-  private async executeForwardAction(
-    action: TriggerAction,
-    context: TriggerContext,
-  ): Promise<any> {
-    const urlTemplate = action.params?.url || "";
-    const url = ExpressionEngine.interpolate(urlTemplate, context);
-    const method = action.params?.method || "POST";
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...action.params?.headers,
-        },
-        body: JSON.stringify(context.data),
-      });
-
-      const body = await response.text();
-
-      return {
-        type: "forward",
-        url,
-        method,
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
-        body,
-      };
-    } catch (error) {
-      return {
-        type: "forward",
-        url,
-        method,
-        error: String(error),
-      };
-    }
-  }
 
   /**
    * Verifica si una regla está en cooldown

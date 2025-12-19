@@ -1,5 +1,6 @@
 import { Glob } from "bun";
 import * as path from "path";
+import { watch } from "fs";
 import type { TriggerRule } from "../types";
 import { TriggerValidator } from "../domain/validator";
 
@@ -69,5 +70,35 @@ export class TriggerLoader {
       console.error(`Error parsing YAML file ${filePath}:`, error);
       throw error;
     }
+  }
+  /**
+   * Watches a directory for changes and reloads rules automatically.
+   * @param dirPath Directory to watch
+   * @param onUpdate Callback function that receives the updated list of rules
+   * @returns FSWatcher instance (call .close() to stop watching)
+   */
+  static watchRules(dirPath: string, onUpdate: (rules: TriggerRule[]) => void) {
+    // Initial load
+    this.loadRulesFromDir(dirPath).then(onUpdate);
+
+    console.log(`[TriggerLoader] Watching for changes in ${dirPath}...`);
+
+    const watcher = watch(dirPath, { recursive: true }, async (event, filename) => {
+      // Check if it's a YAML file
+      if (filename && (filename.endsWith('.yaml') || filename.endsWith('.yml'))) {
+        console.log(`[TriggerLoader] Detected change in ${filename} (${event}). Reloading rules...`);
+        
+        try {
+          const rules = await this.loadRulesFromDir(dirPath);
+          onUpdate(rules);
+          console.log(`[TriggerLoader] Reloaded ${rules.length} rules.`);
+        } catch (err) {
+          console.error("[TriggerLoader] Failed to reload rules:", err);
+        }
+      }
+    });
+
+
+    return watcher;
   }
 }
