@@ -22,6 +22,12 @@ const TOP_LEVEL_KEYS: CompletionItem[] = [
     { label: 'enabled', kind: CompletionItemKind.Property },
     { label: 'cooldown', kind: CompletionItemKind.Property },
     { label: 'tags', kind: CompletionItemKind.Property },
+    { 
+        label: 'trigger_rule', 
+        kind: CompletionItemKind.Snippet, 
+        insertText: '- id: ${1:rule-id}\n  on: ${2:EVENT_NAME}\n  if:\n    field: ${3:data.field}\n    operator: ${4:EQ}\n    value: ${5:value}\n  do:\n    type: ${6:log}\n    params:\n      message: ${7:Done}',
+        detail: 'Full Trigger Rule template'
+    }
 ];
 
 const EVENTS: CompletionItem[] = [
@@ -264,6 +270,52 @@ function getValueCompletions(pair: Pair, path: (Node | Pair)[]): CompletionItem[
              { label: 'ALL', kind: CompletionItemKind.EnumMember },
              { label: 'SEQUENCE', kind: CompletionItemKind.EnumMember },
              { label: 'EITHER', kind: CompletionItemKind.EnumMember }
+        ];
+    }
+
+    if (key === 'if') {
+        return [
+            { 
+                label: 'condition', 
+                kind: CompletionItemKind.Snippet, 
+                insertText: '\n  field: ${1:data.field}\n  operator: ${2:EQ}\n  value: ${3:value}',
+                detail: 'Single condition'
+            },
+            { 
+                label: 'condition_list', 
+                kind: CompletionItemKind.Snippet, 
+                insertText: '\n  - field: ${1:data.field}\n    operator: ${2:EQ}\n    value: ${3:value}',
+                detail: 'List of conditions'
+            },
+            { 
+                label: 'condition_group', 
+                kind: CompletionItemKind.Snippet, 
+                insertText: '\n  operator: ${1:AND}\n  conditions:\n    - field: ${2:data.field}\n      operator: ${3:EQ}\n      value: ${4:value}',
+                detail: 'Condition group (AND/OR)'
+            }
+        ];
+    }
+
+    if (key === 'do') {
+        return [
+            { 
+                label: 'action', 
+                kind: CompletionItemKind.Snippet, 
+                insertText: '\n  type: ${1:log}\n  params:\n    message: ${2:Hello}',
+                detail: 'Single action'
+            },
+            { 
+                label: 'action_list', 
+                kind: CompletionItemKind.Snippet, 
+                insertText: '\n  - type: ${1:log}\n    params:\n      message: ${2:Hello}',
+                detail: 'List of actions'
+            },
+            { 
+                label: 'action_group', 
+                kind: CompletionItemKind.Snippet, 
+                insertText: '\n  mode: ${1:SEQUENCE}\n  actions:\n    - type: ${2:log}\n      params:\n        message: ${3:Hello}',
+                detail: 'Action group'
+            }
         ];
     }
     

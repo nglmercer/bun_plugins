@@ -66,8 +66,10 @@ const types = scope({
 
     ActionGroup: {
         "mode?": "'ALL' | 'EITHER' | 'SEQUENCE'",
-        actions: "Action[] >= 1" // Empty group is useless
+        actions: "(Action | ActionGroup)[] >= 1" // Recursive
     },
+
+    RuleAction: "Action | ActionGroup",
 
     TriggerRule: {
         id: "string > 0",
@@ -81,7 +83,7 @@ const types = scope({
         
         "if?": "RuleCondition | RuleCondition[]",
         
-        do: "Action | Action[] | ActionGroup",
+        do: "RuleAction | RuleAction[]",
         "comment?": "string"
     }
 }).export();
