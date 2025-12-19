@@ -102,7 +102,7 @@
 - id: action-group-parallel
   on: "RANDOM_TEST"
   if:
-    operator: OR
+    operator: AND
     conditions:
       - field: data.x
         operator: "<"

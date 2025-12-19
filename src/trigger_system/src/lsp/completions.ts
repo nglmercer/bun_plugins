@@ -1,33 +1,29 @@
 
 import { 
-    CompletionItemKind
+    CompletionItemKind,
+    InsertTextFormat
 } from 'vscode-languageserver/node';
 import type { 
     CompletionItem, 
     Position
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { parseDocument, isMap, isSeq, isPair, isScalar,type Node, Scalar, YAMLMap, Pair, YAMLSeq } from 'yaml';
+import { parseDocument, isMap, isSeq, isPair, isScalar, type Node, Scalar, YAMLMap, Pair, YAMLSeq } from 'yaml';
 
-// --- DEFINITIONS ---
+// --- CONSTANTS & DEFINITIONS ---
 
 const TOP_LEVEL_KEYS: CompletionItem[] = [
-    { label: 'id', kind: CompletionItemKind.Field, detail: 'Unique identifier' },
-    { label: 'name', kind: CompletionItemKind.Field },
-    { label: 'description', kind: CompletionItemKind.Field },
-    { label: 'on', kind: CompletionItemKind.Keyword, detail: 'Event trigger' },
-    { label: 'if', kind: CompletionItemKind.Keyword, detail: 'Condition block' },
-    { label: 'do', kind: CompletionItemKind.Keyword, detail: 'Action block' },
-    { label: 'priority', kind: CompletionItemKind.Property },
-    { label: 'enabled', kind: CompletionItemKind.Property },
-    { label: 'cooldown', kind: CompletionItemKind.Property },
-    { label: 'tags', kind: CompletionItemKind.Property },
-    { 
-        label: 'trigger_rule', 
-        kind: CompletionItemKind.Snippet, 
-        insertText: '- id: ${1:rule-id}\n  on: ${2:EVENT_NAME}\n  if:\n    field: ${3:data.field}\n    operator: ${4:EQ}\n    value: ${5:value}\n  do:\n    type: ${6:log}\n    params:\n      message: ${7:Done}',
-        detail: 'Full Trigger Rule template'
-    }
+    { label: 'id', kind: CompletionItemKind.Field, detail: 'Unique identifier for the rule' },
+    { label: 'name', kind: CompletionItemKind.Field, detail: 'Human readable name' },
+    { label: 'description', kind: CompletionItemKind.Field, detail: 'What this rule does' },
+    { label: 'on', kind: CompletionItemKind.Keyword, detail: 'The event that triggers this rule' },
+    { label: 'if', kind: CompletionItemKind.Keyword, detail: 'Conditions that must be met' },
+    { label: 'do', kind: CompletionItemKind.Keyword, detail: 'Actions to perform when triggered' },
+    { label: 'priority', kind: CompletionItemKind.Property, detail: 'Rule execution priority (higher = first)' },
+    { label: 'enabled', kind: CompletionItemKind.Property, detail: 'Whether this rule is active' },
+    { label: 'cooldown', kind: CompletionItemKind.Property, detail: 'Wait time in ms between executions' },
+    { label: 'tags', kind: CompletionItemKind.Property, detail: 'Categorization tags' },
+    { label: 'comment', kind: CompletionItemKind.Text, detail: 'Internal developer note' }
 ];
 
 const EVENTS: CompletionItem[] = [
@@ -48,78 +44,77 @@ const EVENTS: CompletionItem[] = [
 ];
 
 const OPERATORS: CompletionItem[] = [
-    { label: 'EQ', kind: CompletionItemKind.Operator, detail: 'Equal' },
-    { label: '==', kind: CompletionItemKind.Operator, detail: 'Equal' },
-    { label: 'NEQ', kind: CompletionItemKind.Operator, detail: 'Not Equal' },
-    { label: '!=', kind: CompletionItemKind.Operator, detail: 'Not Equal' },
-    { label: 'GT', kind: CompletionItemKind.Operator, detail: 'Greater Than' },
-    { label: '>', kind: CompletionItemKind.Operator, detail: 'Greater Than' },
-    { label: 'GTE', kind: CompletionItemKind.Operator, detail: 'Greater Than Equals' },
-    { label: '>=', kind: CompletionItemKind.Operator, detail: 'Greater Than Equals' },
-    { label: 'LT', kind: CompletionItemKind.Operator, detail: 'Less Than' },
-    { label: '<', kind: CompletionItemKind.Operator, detail: 'Less Than' },
-    { label: 'LTE', kind: CompletionItemKind.Operator, detail: 'Less Than Equals' },
-    { label: '<=', kind: CompletionItemKind.Operator, detail: 'Less Than Equals' },
-    { label: 'IN', kind: CompletionItemKind.Operator, detail: 'Value in List' },
-    { label: 'NOT_IN', kind: CompletionItemKind.Operator, detail: 'Value not in List' },
-    { label: 'CONTAINS', kind: CompletionItemKind.Operator, detail: 'String/List contains' },
-    { label: 'MATCHES', kind: CompletionItemKind.Operator, detail: 'Regex match' },
-    { label: 'RANGE', kind: CompletionItemKind.Operator, detail: '[min, max]' },
-    { label: 'SINCE', kind: CompletionItemKind.Operator, detail: 'Time query' },
-    { label: 'AFTER', kind: CompletionItemKind.Operator, detail: 'Time query' },
-    { label: 'BEFORE', kind: CompletionItemKind.Operator, detail: 'Time query' },
-    { label: 'UNTIL', kind: CompletionItemKind.Operator, detail: 'Time query' },
+    { label: 'EQ', kind: CompletionItemKind.Operator, detail: 'Equal (==)' },
+    { label: 'NEQ', kind: CompletionItemKind.Operator, detail: 'Not Equal (!=)' },
+    { label: 'GT', kind: CompletionItemKind.Operator, detail: 'Greater Than (>)' },
+    { label: 'GTE', kind: CompletionItemKind.Operator, detail: 'Greater Than Equals (>=)' },
+    { label: 'LT', kind: CompletionItemKind.Operator, detail: 'Less Than (<)' },
+    { label: 'LTE', kind: CompletionItemKind.Operator, detail: 'Less Than Equals (<=)' },
+    { label: 'IN', kind: CompletionItemKind.Operator, detail: 'Value exists in the provided list' },
+    { label: 'NOT_IN', kind: CompletionItemKind.Operator, detail: 'Value does not exist in the list' },
+    { label: 'CONTAINS', kind: CompletionItemKind.Operator, detail: 'String contains substring or List contains item' },
+    { label: 'MATCHES', kind: CompletionItemKind.Operator, detail: 'Regex pattern match' },
+    { label: 'RANGE', kind: CompletionItemKind.Operator, detail: 'Numeric value between [min, max]' },
+    { label: 'SINCE', kind: CompletionItemKind.Operator, detail: 'Date is after or equal to value' },
+    { label: 'AFTER', kind: CompletionItemKind.Operator, detail: 'Alias for SINCE' },
+    { label: 'BEFORE', kind: CompletionItemKind.Operator, detail: 'Date is before value' },
+    { label: 'UNTIL', kind: CompletionItemKind.Operator, detail: 'Alias for BEFORE' },
+    { label: 'AND', kind: CompletionItemKind.Operator, detail: 'Logical AND (for groups)' },
+    { label: 'OR', kind: CompletionItemKind.Operator, detail: 'Logical OR (for groups)' }
 ];
 
 const ACTION_TYPES: CompletionItem[] = [
-    { label: 'log', kind: CompletionItemKind.EnumMember, detail: 'Print to console' },
-    { label: 'execute', kind: CompletionItemKind.EnumMember, detail: 'Run shell command' },
-    { label: 'forward', kind: CompletionItemKind.EnumMember, detail: 'HTTP Request' },
-    { label: 'response', kind: CompletionItemKind.EnumMember, detail: 'HTTP Response' },
-    { label: 'STATE_SET', kind: CompletionItemKind.EnumMember, detail: 'Set global state' },
-    { label: 'STATE_INCREMENT', kind: CompletionItemKind.EnumMember, detail: 'Increment global state' },
-    { label: 'EMIT_EVENT', kind: CompletionItemKind.EnumMember, detail: 'Emit internal event' },
+    { label: 'log', kind: CompletionItemKind.EnumMember, detail: 'Print message to console' },
+    { label: 'execute', kind: CompletionItemKind.EnumMember, detail: 'Run local command' },
+    { label: 'forward', kind: CompletionItemKind.EnumMember, detail: 'Forward event to URL' },
+    { label: 'response', kind: CompletionItemKind.EnumMember, detail: 'Return HTTP response' },
+    { label: 'STATE_SET', kind: CompletionItemKind.EnumMember, detail: 'Save value to global state' },
+    { label: 'STATE_INCREMENT', kind: CompletionItemKind.EnumMember, detail: 'Increment numeric state key' },
+    { label: 'EMIT_EVENT', kind: CompletionItemKind.EnumMember, detail: 'Trigger another event internally' },
 ];
 
 const CONDITION_KEYS: CompletionItem[] = [
-    { label: 'field', kind: CompletionItemKind.Field },
-    { label: 'operator', kind: CompletionItemKind.Field },
-    { label: 'value', kind: CompletionItemKind.Value },
-    { label: 'conditions', kind: CompletionItemKind.Field } // for groups
+    { label: 'field', kind: CompletionItemKind.Field, detail: 'Path to context data (e.g. data.user)' },
+    { label: 'operator', kind: CompletionItemKind.Field, detail: 'Comparison operator (EQ, GT, etc.)' },
+    { label: 'value', kind: CompletionItemKind.Value, detail: 'The value to compare against' },
+    { label: 'conditions', kind: CompletionItemKind.Field, detail: 'Sub-conditions for grouping' }
 ];
 
 const ACTION_KEYS: CompletionItem[] = [
-    { label: 'type', kind: CompletionItemKind.Field },
-    { label: 'params', kind: CompletionItemKind.Variable },
-    { label: 'delay', kind: CompletionItemKind.Property },
-    { label: 'probability', kind: CompletionItemKind.Property },
-    { label: 'mode', kind: CompletionItemKind.Property }, // for groups
-    { label: 'actions', kind: CompletionItemKind.Property } // for groups
+    { label: 'type', kind: CompletionItemKind.Field, detail: 'The type of action to perform' },
+    { label: 'params', kind: CompletionItemKind.Variable, detail: 'Configuration for the action' },
+    { label: 'delay', kind: CompletionItemKind.Property, detail: 'Delay in ms (integer)' },
+    { label: 'probability', kind: CompletionItemKind.Property, detail: 'Execution chance (0-1)' },
+    { label: 'mode', kind: CompletionItemKind.Property, detail: 'Grouping mode (ALL, SEQUENCE, EITHER)' },
+    { label: 'actions', kind: CompletionItemKind.Property, detail: 'List of sub-actions' }
 ];
 
-// Map Action Type -> Params Keys
 const PARAM_KEYS: Record<string, CompletionItem[]> = {
     'log': [
         { label: 'message', kind: CompletionItemKind.Property },
         { label: 'content', kind: CompletionItemKind.Property },
+        { label: 'level', kind: CompletionItemKind.Property, detail: 'info, warn, error' },
     ],
     'execute': [
         { label: 'command', kind: CompletionItemKind.Property },
-        { label: 'safe', kind: CompletionItemKind.Property, detail: 'boolean' },
+        { label: 'safe', kind: CompletionItemKind.Property, detail: 'boolean (default: false)' },
+        { label: 'dir', kind: CompletionItemKind.Property, detail: 'working directory' },
     ],
     'forward': [
         { label: 'url', kind: CompletionItemKind.Property },
-        { label: 'method', kind: CompletionItemKind.Property, detail: 'POST, GET...' },
+        { label: 'method', kind: CompletionItemKind.Property, detail: 'POST, GET, PUT...' },
         { label: 'headers', kind: CompletionItemKind.Property },
+        { label: 'body', kind: CompletionItemKind.Property },
     ],
     'response': [
         { label: 'content', kind: CompletionItemKind.Property },
-        { label: 'statusCode', kind: CompletionItemKind.Property },
-        { label: 'headers', kind: CompletionItemKind.Property },
+        { label: 'statusCode', kind: CompletionItemKind.Property, detail: '200, 404, etc.' },
+        { label: 'contentType', kind: CompletionItemKind.Property, detail: 'application/json' },
     ],
     'STATE_SET': [
         { label: 'key', kind: CompletionItemKind.Property },
         { label: 'value', kind: CompletionItemKind.Property },
+        { label: 'ttl', kind: CompletionItemKind.Property, detail: 'Time to live in ms' },
     ],
     'STATE_INCREMENT': [
         { label: 'key', kind: CompletionItemKind.Property },
@@ -131,303 +126,218 @@ const PARAM_KEYS: Record<string, CompletionItem[]> = {
     ]
 };
 
-// --- LOGIC ---
+const DYNAMIC_VALUES: CompletionItem[] = [
+    { label: '${data.}', kind: CompletionItemKind.Snippet, insertText: '${data.$1}', insertTextFormat: InsertTextFormat.Snippet, detail: 'Event data' },
+    { label: '${state.}', kind: CompletionItemKind.Snippet, insertText: '${state.$1}', insertTextFormat: InsertTextFormat.Snippet, detail: 'Global state' },
+    { label: '${globals.}', kind: CompletionItemKind.Snippet, insertText: '${globals.$1}', insertTextFormat: InsertTextFormat.Snippet, detail: 'Environment variables' },
+    { label: '${timestamp}', kind: CompletionItemKind.Variable, detail: 'Current time ms' },
+];
+
+const SNIPPETS: CompletionItem[] = [
+    { 
+        label: 'trigger_rule', 
+        kind: CompletionItemKind.Snippet, 
+        insertText: '- id: ${1:rule-id}\n  on: ${2:EVENT}\n  if:\n    field: ${3:data.field}\n    operator: ${4:EQ}\n    value: ${5:target}\n  do:\n    type: ${6:log}\n    params:\n      message: ${7:Done}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        detail: 'New rule template'
+    },
+    {
+        label: 'log_action',
+        kind: CompletionItemKind.Snippet,
+        insertText: 'type: log\nparams:\n  message: ${1:message}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        detail: 'Log action template'
+    },
+    {
+        label: 'condition_nested',
+        kind: CompletionItemKind.Snippet,
+        insertText: 'operator: ${1|AND,OR|}\nconditions:\n  - field: ${2:data.x}\n    operator: ${3:EQ}\n    value: ${4:val}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        detail: 'Nested condition group'
+    }
+];
+
+// --- MAIN LOGIC ---
 
 export function getCompletionItems(document: TextDocument, position: Position): CompletionItem[] {
     const text = document.getText();
     const doc = parseDocument(text);
+    const line = text.split('\n')[position.line] || '';
     const offset = document.offsetAt(position);
-
-    // If empty doc
-    if (!text.trim()) {
-        return TOP_LEVEL_KEYS;
-    }
-
-    // Find node at offset
-    const path = findPathAtOffset(doc.contents, offset);
-
-    if (!path || path.length === 0) {
-        // Fallback for root or new lines that parser missed
-        // Check indentation logic or default to root
-        return TOP_LEVEL_KEYS; 
-    }
-
-    const lastNode = path[path.length - 1];
+    console.log(`LSP: line="${line}", char=${position.character}, offset=${offset}`);
     
-    // Determine if we are completing a KEY or a VALUE
-    // In YAML AST, if we are in a Pair, we might be in key or value.
-    if (isPair(lastNode)) {
-        // Check if cursor is in key range or value range
-        const pair = lastNode as Pair;
-        
-        // If cursor is in Value position (past the key and its colon)
-        // We use offset check because pair.value might be null for empty values
-        const keyNode = pair.key as Node;
-        if (keyNode.range && offset >= keyNode.range[1]) {
-            return getValueCompletions(pair, path);
-        }
-        
-        // If cursor is in Key position (or completing key)
-        // Usually tough to distinguish "modifying key" from "new key" perfectly without robust CST
-        // But let's assume if it matches known keys, we are modifying key. 
-        // If we are significantly past the key, we are in value.
-        // Simplified:
-        return getKeyCompletions(path);
-    }
-    
-    // If we are in a Map, we are likely adding a new key
-    if (isMap(lastNode)) {
-        return getKeyCompletions(path);
+    // 1. Check if we are in a VALUE position (after colon)
+    const colonIndex = line.indexOf(':');
+    if (colonIndex !== -1 && position.character > colonIndex) {
+        const key = line.substring(0, colonIndex).trim().replace(/^- /, '');
+        console.log(`LSP: entering value completions for key="${key}"`);
+        const path = findPathAtOffset(doc.contents, offset) || [];
+        return getValueCompletionsByKey(key, path);
     }
 
-    // If we are in a Sequence, we might be starting a new item which is usually a map
-    if (isSeq(lastNode)) {
-         // Often items are objects
-         const parent = path[path.length - 2];
-         if (parent && isPair(parent)) {
-             const key = (parent.key as Scalar).value as string;
-             if (key === 'actions' || key === 'do') return ACTION_KEYS;
-             if (key === 'if') return CONDITION_KEYS; // if 'if' is a list
-         }
-    }
-
-    // If we are in a Scalar, it depends on parent.
-    if (isScalar(lastNode)) {
-        const parent = path[path.length - 2];
-        if (isPair(parent)) {
-            // We are likely in a value or key of this pair
-            // Check range
-            const p = parent as Pair;
-            if (p.key === lastNode) {
-                // We are editing key
-                return getKeyCompletions(path.slice(0, -1));
-            } else {
-                // We are editing value
-                return getValueCompletions(p, path.slice(0, -1));
-            }
-        }
-        // If parent is Seq, we are item in list
-    }
-
-    return [];
+    // 2. We are in a KEY position or start of line
+    const path = findPathAtOffset(doc.contents, offset) || [];
+    return getKeyCompletions(path, line);
 }
 
-function getKeyCompletions(path: (Node | Pair)[]): CompletionItem[] {
-    // Traverse up to find context
-    // path: [RootMap, Pair(do), Seq, Map] -> we are inside an action
-    // path: [RootMap, Pair(if), Map] -> inside condition
-    // path: [RootMap] -> root keys
-    
-    let current = path[path.length - 1];
-    
-    // Unwind until we find a Map context or root
-    // logic: look at the parent Pair to see what property we are filling
-    
-    // If we are just in Root (YAMLMap at index 0) and not nested:
-    if (path.length === 1 && isMap(current)) {
-        return TOP_LEVEL_KEYS;
+function getValueCompletionsByKey(key: string, path: (Node | Pair)[]): CompletionItem[] {
+    switch (key) {
+        case 'on': return EVENTS;
+        case 'operator': return OPERATORS;
+        case 'type': return ACTION_TYPES;
+        case 'mode':
+            return [
+                { label: 'ALL', kind: CompletionItemKind.EnumMember, detail: 'Execute all' },
+                { label: 'SEQUENCE', kind: CompletionItemKind.EnumMember, detail: 'Wait for each' },
+                { label: 'EITHER', kind: CompletionItemKind.EnumMember, detail: 'Random choice' }
+            ];
+        case 'enabled':
+            return [
+                { label: 'true', kind: CompletionItemKind.Value },
+                { label: 'false', kind: CompletionItemKind.Value }
+            ];
+        case 'field':
+            return DYNAMIC_VALUES.map(v => ({ ...v, label: v.label.replace('${', '').replace('}', '').replace('.', '') }));
+        case 'value':
+            return getValueSpecificToOperator(path);
     }
-    
-    // Check immediate parent pair we are INSIDE of (if any)
-    const parentPair = findParentPair(path);
-    if (!parentPair) return TOP_LEVEL_KEYS;
-    
-    const key = (parentPair.key as Scalar).value as string;
+    return DYNAMIC_VALUES;
+}
 
-    if (key === 'if' || key === 'conditions') {
-        return CONDITION_KEYS;
+function getKeyCompletions(path: (Node | Pair)[], line: string): CompletionItem[] {
+    // If line starts with '- ', we might be in a list
+    if (line.trim().startsWith('-')) {
+        const parentPair = findEffectiveParentPair(path);
+        if (parentPair) {
+            const pk = String((parentPair.key as Scalar).value);
+            if (pk === 'do' || pk === 'actions') return ACTION_KEYS;
+            if (pk === 'if' || pk === 'conditions') return CONDITION_KEYS;
+        }
+        return SNIPPETS.length > 0 ? [SNIPPETS[0] as CompletionItem] : [];
     }
-    
-    if (key === 'do' || key === 'actions') {
-        return ACTION_KEYS;
-    }
+
+    const contextPair = findEffectiveParentPair(path);
+    if (!contextPair) return TOP_LEVEL_KEYS;
+
+    const key = String((contextPair.key as Scalar).value);
+    if (key === 'if' || key === 'conditions') return CONDITION_KEYS;
+    if (key === 'do' || key === 'actions') return ACTION_KEYS;
     
     if (key === 'params') {
-        // We need to know the 'type' of the action.
-        // The 'type' is a sibling key in the same Map.
-        const map = path.find(n => isMap(n)) as YAMLMap;
-        if (map) {
-            const typePair = map.items.find(item => isPair(item) && (item.key as Scalar).value === 'type');
-            if (typePair) {
-                 const typeValue = (typePair.value as Scalar).value as string;
-                 return PARAM_KEYS[typeValue] || [];
+        const actionMap = findNearestActionMap(path);
+        if (actionMap) {
+            const typePair = actionMap.items.find(item => isPair(item) && String((item.key as Scalar).value) === 'type');
+            if (typePair && isScalar(typePair.value)) {
+                return PARAM_KEYS[String(typePair.value.value)] || [];
             }
         }
-        return [];
     }
 
-    return [];
-}
-
-function getValueCompletions(pair: Pair, path: (Node | Pair)[]): CompletionItem[] {
-    const key = (pair.key as Scalar).value as string;
-
-    if (key === 'on') return EVENTS;
-    if (key === 'operator') return OPERATORS;
-    if (key === 'type') return ACTION_TYPES;
-    if (key === 'mode') {
-        return [
-             { label: 'ALL', kind: CompletionItemKind.EnumMember },
-             { label: 'SEQUENCE', kind: CompletionItemKind.EnumMember },
-             { label: 'EITHER', kind: CompletionItemKind.EnumMember }
-        ];
-    }
-
-    if (key === 'if') {
-        return [
-            { 
-                label: 'condition', 
-                kind: CompletionItemKind.Snippet, 
-                insertText: '\n  field: ${1:data.field}\n  operator: ${2:EQ}\n  value: ${3:value}',
-                detail: 'Single condition'
-            },
-            { 
-                label: 'condition_list', 
-                kind: CompletionItemKind.Snippet, 
-                insertText: '\n  - field: ${1:data.field}\n    operator: ${2:EQ}\n    value: ${3:value}',
-                detail: 'List of conditions'
-            },
-            { 
-                label: 'condition_group', 
-                kind: CompletionItemKind.Snippet, 
-                insertText: '\n  operator: ${1:AND}\n  conditions:\n    - field: ${2:data.field}\n      operator: ${3:EQ}\n      value: ${4:value}',
-                detail: 'Condition group (AND/OR)'
-            }
-        ];
-    }
-
-    if (key === 'do') {
-        return [
-            { 
-                label: 'action', 
-                kind: CompletionItemKind.Snippet, 
-                insertText: '\n  type: ${1:log}\n  params:\n    message: ${2:Hello}',
-                detail: 'Single action'
-            },
-            { 
-                label: 'action_list', 
-                kind: CompletionItemKind.Snippet, 
-                insertText: '\n  - type: ${1:log}\n    params:\n      message: ${2:Hello}',
-                detail: 'List of actions'
-            },
-            { 
-                label: 'action_group', 
-                kind: CompletionItemKind.Snippet, 
-                insertText: '\n  mode: ${1:SEQUENCE}\n  actions:\n    - type: ${2:log}\n      params:\n        message: ${3:Hello}',
-                detail: 'Action group'
-            }
-        ];
-    }
-    
-    if (key === 'value') {
-        // Find sibling 'operator'
-        const map = path[path.length - 1];
-        if (isMap(map)) {
-             const opPair = map.items.find(item => isPair(item) && (item.key as Scalar).value === 'operator');
-             if (opPair && opPair.value) {
-                 const op = (opPair.value as Scalar).value as string;
-                 return getValueSuggestionsForOperator(op);
-             }
-        }
-        // General suggestions if no operator found or general context
-        return [
-            { label: 'true', kind: CompletionItemKind.Value },
-            { label: 'false', kind: CompletionItemKind.Value },
-            { label: '${data.}', kind: CompletionItemKind.Snippet, insertText: '${data.$1}' }
-        ];
-    }
-
-    return [];
-}
-
-function getValueSuggestionsForOperator(operator: string): CompletionItem[] {
-    switch (operator) {
-        case 'RANGE':
-            return [{ label: '[min, max]', kind: CompletionItemKind.Snippet, insertText: '[$1, $2]' }];
-        case 'IN':
-        case 'NOT_IN':
-            return [{ label: '[item1, item2]', kind: CompletionItemKind.Snippet, insertText: '[$1, $2]' }];
-        case 'EQ':
-        case '==':
-        case 'NEQ':
-        case '!=':
-        case 'CONTAINS':
-             return [
-                 { label: '"text"', kind: CompletionItemKind.Value, insertText: '"$1"' },
-                 { label: '123', kind: CompletionItemKind.Value },
-                 { label: '${data.var}', kind: CompletionItemKind.Snippet, insertText: '${data.$1}' }
-             ];
-        case 'MATCHES':
-             return [{ label: '"regex"', kind: CompletionItemKind.Value, insertText: '"^$1$"' }];
-        case 'GT':
-        case '>':
-        case 'GTE':
-        case '>=':
-        case 'LT':
-        case '<':
-        case 'LTE':
-        case '<=':
-              return [
-                 { label: '10', kind: CompletionItemKind.Value },
-                 { label: '0', kind: CompletionItemKind.Value },
-                 { label: '${data.var}', kind: CompletionItemKind.Snippet, insertText: '${data.$1}' }
-             ];
-        default:
-             return [];
-    }
+    return TOP_LEVEL_KEYS;
 }
 
 
-function findParentPair(path: (Node | Pair)[]): Pair | null {
+// --- HELPERS ---
+
+function isKeyOfParent(node: Scalar, path: (Node | Pair)[]): boolean {
+    const parent = path[path.length - 2];
+    if (isPair(parent)) return parent.key === node;
+    return false;
+}
+
+function findEffectiveParentPair(path: (Node | Pair)[]): Pair | null {
     for (let i = path.length - 1; i >= 0; i--) {
-        if (isPair(path[i])) return path[i] as Pair;
+        const item = path[i];
+        if (isPair(item)) return item;
     }
     return null;
 }
 
-// Simple recursive finder
-function findPathAtOffset(node: Node | Pair | null, offset: number, currentPath: (Node | Pair)[] = []): (Node | Pair)[] | null {
+function findNearestActionMap(path: (Node | Pair)[]): YAMLMap | null {
+    for (let i = path.length - 1; i >= 0; i--) {
+        const item = path[i];
+        if (isMap(item)) {
+            const hasType = item.items.some(p => isPair(p) && String((p.key as Scalar).value) === 'type');
+            if (hasType) return item;
+        }
+    }
+    return null;
+}
+
+function getValueSpecificToOperator(path: (Node | Pair)[]): CompletionItem[] {
+    // Look for a map in the path that contains an 'operator' key
+    const map = path.slice().reverse().find(n => isMap(n)) as YAMLMap;
+    if (!map) return DYNAMIC_VALUES;
+
+    const opPair = map.items.find(item => isPair(item) && String((item.key as Scalar).value) === 'operator');
+    if (!opPair || !isScalar(opPair.value)) return DYNAMIC_VALUES;
+
+    const op = String(opPair.value.value);
+    switch (op) {
+        case 'RANGE':
+            return [{ label: '[min, max]', kind: CompletionItemKind.Snippet, insertText: '[$1, $2]', insertTextFormat: InsertTextFormat.Snippet }];
+        case 'IN':
+        case 'NOT_IN':
+            return [{ label: '[item1, item2]', kind: CompletionItemKind.Snippet, insertText: '[$1, $2]', insertTextFormat: InsertTextFormat.Snippet }];
+        case 'MATCHES':
+            return [{ label: '"regex"', kind: CompletionItemKind.Snippet, insertText: '"^$1$"', insertTextFormat: InsertTextFormat.Snippet }];
+    }
+
+    return DYNAMIC_VALUES;
+}
+
+export function findPathAtOffset(node: Node | Pair | null, offset: number, currentPath: (Node | Pair)[] = []): (Node | Pair)[] | null {
     if (!node) return null;
     
-    // Check if offset is within node range
-    if ((node as any).range) {
-        const [start, end] = (node as any).range;
-        // For completions, we are often at the very end of the range or one char past (space)
-        if (offset < start || offset > end + 1) return null;
+    // Check range
+    const range = (node as any).range;
+    if (range) {
+        // [start, end, optional_something]
+        // Parser range is [start, end]. 
+        // We want to be inclusive and a bit more for completions at the end of a line.
+        if (offset < range[0] || offset > range[1] + 1) {
+             // If we are exactly 1 char past the end (like at the end of "mode: "), 
+             // we still might want this node if it's the most specific one.
+        }
     }
 
     const newPath = [...currentPath, node];
 
     if (isMap(node)) {
-         // Sort items by range to find the most specific one
-         for (const item of node.items) {
-             const res = findPathAtOffset(item, offset, newPath);
-             if (res) return res;
-         }
-         return newPath;
+        for (const item of node.items) {
+            if (isPair(item)) {
+                const itemRange = (item as any).range;
+                if (itemRange && offset >= itemRange[0] && offset <= itemRange[1] + 1) {
+                    return findPathAtOffset(item, offset, newPath);
+                }
+            }
+        }
+        return newPath;
     }
     
     if (isSeq(node)) {
         for (const item of node.items) {
-             const res = findPathAtOffset(item as Node, offset, newPath);
-             if (res) return res;
+            const itemRange = (item as any).range;
+            if (itemRange && offset >= itemRange[0] && offset <= itemRange[1] + 1) {
+                return findPathAtOffset(item as Node, offset, newPath);
+            }
         }
         return newPath;
     }
     
     if (isPair(node)) {
-        const pair = node as Pair;
-        
-        // If we are past the key but before/at the value
-        if (pair.key) {
-             const res = findPathAtOffset(pair.key as Node, offset, newPath);
-             if (res) return res;
+        // If we are in a pair, we could be in key or value
+        const keyRange = (node.key as any)?.range;
+        if (keyRange && offset >= keyRange[0] && offset <= keyRange[1] + 1) {
+            return findPathAtOffset(node.key as Node, offset, newPath);
         }
-
-        // If we have a value, check it
-        if (pair.value) {
-            const res = findPathAtOffset(pair.value as Node, offset, newPath);
-            if (res) return res;
+        
+        // If there's a value, check it
+        if (node.value) {
+            const valRange = (node.value as any)?.range;
+            if (valRange && offset >= valRange[0] && offset <= valRange[1] + 1) {
+                return findPathAtOffset(node.value as Node, offset, newPath);
+            }
         }
         
         return newPath;
@@ -435,3 +345,6 @@ function findPathAtOffset(node: Node | Pair | null, offset: number, currentPath:
 
     return newPath;
 }
+
+
+
