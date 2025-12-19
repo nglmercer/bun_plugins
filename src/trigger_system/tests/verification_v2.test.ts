@@ -33,8 +33,8 @@ describe("Verification V2: New Features", () => {
         const results = await engine.evaluateContext(context);
         
         expect(results).toHaveLength(1);
-        expect(results[0].success).toBe(true);
-        expect(results[0].executedActions[0].type).toBe("TEST_CUSTOM");
+        expect(results[0]!.success).toBe(true);
+        expect(results[0]!.executedActions[0]!.type).toBe("TEST_CUSTOM");
         expect(customActionExecuted).toBe(true);
     });
 

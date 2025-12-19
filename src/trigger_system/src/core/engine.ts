@@ -12,11 +12,11 @@ import type {
 import { TriggerUtils } from "../utils/utils";
 import { TriggerLoader } from "../io/loader";
 
-export type ActionHandler = (params: any, context: TriggerContext) => Promise<any> | any;
+export type EngineActionHandler = (params: any, context: TriggerContext) => Promise<any> | any;
 
 export class TriggerEngine {
   private rules: TriggerRule[] = [];
-  private actionHandlers: Map<string, ActionHandler> = new Map();
+  private actionHandlers: Map<string, EngineActionHandler> = new Map();
   private lastExecution: Map<string, number> = new Map();
 
   constructor() {}
@@ -38,7 +38,7 @@ export class TriggerEngine {
   /**
    * Register a handler for a specific action type
    */
-  registerAction(type: string, handler: ActionHandler) {
+  registerAction(type: string, handler: EngineActionHandler) {
     this.actionHandlers.set(type, handler);
   }
 

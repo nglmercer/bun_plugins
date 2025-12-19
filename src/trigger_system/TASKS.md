@@ -14,7 +14,5 @@
   - Added Date operators (`SINCE`, `BEFORE`, `AFTER`, `UNTIL`).
   - Added Regex support (`MATCHES`).
 - [x] **Context Adapters**: Implemented `ContextAdapter` in `src/core/context-adapter.ts`.
-
-## Backlog
-
-- [ ] **Visualizer**: Web view for rules.
+- [x] **Validator Refactor**: Migrated to ArkType for optimized, recursive schema validation (`src/domain/validator.ts`).
+- [x] **Verification V2**: Confirmed new features (Custom Actions, Dynamic Values, Date Ops, Regex) with `tests/verification_v2.test.ts`.
