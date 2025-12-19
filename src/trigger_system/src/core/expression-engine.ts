@@ -112,9 +112,14 @@ export class ExpressionEngine {
     expression: string,
     context: TriggerContext,
   ): any {
-    // Intentar obtener un valor del contexto
-    if (/^(data|globals|request|computed)\./.test(expression)) {
-      return this.getNestedValue(expression, context);
+    // Intentar obtener un valor del contexto SI es una ruta simple (sin espacios, operadores, etc.)
+    // Regex: Start with reserved root, followed by dots and words. No spaces.
+    if (/^(data|globals|request|computed)(\.[a-zA-Z0-9_]+)+$/.test(expression)) {
+      const val = this.getNestedValue(expression, context);
+      // If found, return. If undefined, we might accept it as undefined, 
+      // OR if technically it shouldn't be undefined, we might fail? 
+      // But for robustness, let's return it.
+      return val;
     }
 
     // Intentar evaluar como expresión de JavaScript

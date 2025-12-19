@@ -19,7 +19,7 @@ describe("Trigger System", () => {
         });
         
         // Load the sample rules
-        await engine.loadRules(path.join(import.meta.dir, "rules"));
+        await engine.loadRules(path.join(import.meta.dir, "../rules"));
     });
 
     test("Should trigger action when user matches", async () => {

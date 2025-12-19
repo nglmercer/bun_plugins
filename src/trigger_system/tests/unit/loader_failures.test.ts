@@ -3,7 +3,7 @@ import { TriggerLoader } from "../../src/io/loader";
 import * as path from "path";
 
 describe("TriggerLoader Error Handling", () => {
-    const incorrectDir = path.join(import.meta.dir, "incorrect");
+    const incorrectDir = path.join(import.meta.dir, "../incorrect");
 
     test("Should correctly identify and reject invalid schema rules", async () => {
         const filePath = path.join(incorrectDir, "invalid_schema.yaml");

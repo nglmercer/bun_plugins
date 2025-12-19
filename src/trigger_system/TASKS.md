@@ -2,7 +2,7 @@
 
 ## Active
 
-- [ ] **State Persistence**: Design and implement `PersistenceManager` with SQLite support.
+- [ ] **State Persistence**: Implement SQLite adapter.
 - [ ] **Observability**: Implement structured logging with `correlated_id`.
 - [ ] **REPL Tool**: Create a CLI for manual event injection (`bun run trigger-cli`).
 
@@ -22,5 +22,9 @@
 
 - [x] **Verification V2**: Confirmed new features (Custom Actions, Dynamic Values, Date Ops, Regex) with `tests/verification_v2.test.ts`.
 - [x] **CLI Tool**: Implemented `src/cli/validate.ts` and `bun run validate`.
+
 - [x] **Circular Dependency Check**: Implemented `src/core/dependency-graph.ts` static analyzer.
 - [x] **LSP Server**: Implemented `src/lsp/server.ts` for editor integration.
+- [x] **Persistence Interface**: Created `PersistenceAdapter` and `InMemoryPersistence`.
+- [x] **Event Queue**: Created `src/core/event-queue.ts`.
+- [x] **Expression Robustness**: Updated engine to support `||` defaults and handle nulls safely.

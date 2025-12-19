@@ -71,8 +71,9 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 
 ### A. Infrastructure & Persistence
 
-- [ ] **Persistence Layer**: Implement `PersistenceAdapter` (abstract) and `SQLitePersistence` / `RedisPersistence` to save state across restarts. //external implementation not included
-- [ ] **Event Queue**: Implement an event buffer/queue to handle high load without dropping events.
+- [x] **Persistence Layer**: Implemented `PersistenceAdapter` interface and `InMemoryPersistence` (`src/core/persistence.ts`).
+- [x] **Event Queue**: Implemented `EventQueue` for high-load buffering (`src/core/event-queue.ts`).
+- [ ] **Persistence Implementation**: Add real SQLite/Redis implementations.
 
 ### B. Advanced Features
 
