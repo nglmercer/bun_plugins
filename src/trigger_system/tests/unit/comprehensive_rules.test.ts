@@ -15,7 +15,6 @@ describe("Comprehensive Rule Engine Tests", () => {
         stateManager.set("eq_result", false);
         stateManager.set("eq_alias_result", false);
         stateManager.set("neq_result", false);
-        // ... (reset others if needed, but new instances or keys are enough)
         
         // Load rules
         const rulesPath = path.join(import.meta.dir, "../rules/examples/all_operators.yaml");
@@ -43,6 +42,7 @@ describe("Comprehensive Rule Engine Tests", () => {
     it("should pass numeric and equality operators", async () => {
         const context = {
             event: "TEST_EVENT",
+            timestamp: Date.now(),
             data: {
                 value: "test_string",
                 number: 100,
@@ -53,19 +53,20 @@ describe("Comprehensive Rule Engine Tests", () => {
 
         // console.log("State after numeric test:", JSON.stringify(stateManager.getAll()));
 
-        expect(stateManager.get("eq_result")).toBe(true, "eq_result failed");
-        expect(stateManager.get("eq_alias_result")).toBe(true, "eq_alias_result failed");
-        expect(stateManager.get("neq_result")).toBe(true, "neq_result failed");
-        expect(stateManager.get("gt_result")).toBe(true, "gt_result failed");
-        expect(stateManager.get("gte_result")).toBe(true, "gte_result failed");
-        expect(stateManager.get("lt_result")).toBe(true, "lt_result failed"); 
-        expect(stateManager.get("lte_result")).toBe(true, "lte_result failed");
-        expect(stateManager.get("range_result")).toBe(true, "range_result failed");
+        expect(stateManager.get("eq_result")).toBe(true);
+        expect(stateManager.get("eq_alias_result")).toBe(true);
+        expect(stateManager.get("neq_result")).toBe(true);
+        expect(stateManager.get("gt_result")).toBe(true);
+        expect(stateManager.get("gte_result")).toBe(true);
+        expect(stateManager.get("lt_result")).toBe(true); 
+        expect(stateManager.get("lte_result")).toBe(true);
+        expect(stateManager.get("range_result")).toBe(true);
     });
 
     it("should pass string operators", async () => {
         const context = {
             event: "TEST_EVENT",
+            timestamp: Date.now(),
             data: {
                 text: "The quick brown fox",
                 email: "user@example.com"
@@ -80,6 +81,7 @@ describe("Comprehensive Rule Engine Tests", () => {
     it("should pass list operators", async () => {
         const context = {
             event: "TEST_EVENT",
+            timestamp: Date.now(),
             data: {
                 role: "admin"
             }
@@ -93,6 +95,7 @@ describe("Comprehensive Rule Engine Tests", () => {
     it("should pass date operators", async () => {
         const context = {
             event: "TEST_EVENT",
+            timestamp: Date.now(),
             data: {
                 timestamp: "2024-01-01T12:00:00Z"
             }
@@ -106,6 +109,7 @@ describe("Comprehensive Rule Engine Tests", () => {
     it("should pass logical grouping (AND/OR)", async () => {
         const context = {
             event: "TEST_EVENT",
+            timestamp: Date.now(),
             data: {
                 active: true,
                 score: 20,
@@ -121,8 +125,12 @@ describe("Comprehensive Rule Engine Tests", () => {
     it("should handle dynamic values from globals", async () => {
         const context = {
             event: "TEST_EVENT",
+            timestamp: Date.now(),
             data: {
                 target: "hit_me"
+            },
+            globals: {
+                secret_target: "hit_me"
             }
         };
         // Global "secret_target" set in beforeEach
@@ -132,7 +140,7 @@ describe("Comprehensive Rule Engine Tests", () => {
     });
 
     it("should execute sequence of actions", async () => {
-        const context = { event: "TEST_EVENT", data: {} };
+        const context = { event: "TEST_EVENT", timestamp: Date.now(), data: {} };
         await engine.evaluateContext(context);
         expect(stateManager.get("seq_step_1")).toBe("done");
         expect(stateManager.get("seq_step_2")).toBe("done");
