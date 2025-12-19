@@ -4,7 +4,7 @@
 # --- Equality and Inequality ---
 
 - id: check-eq
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.value
     operator: EQ
@@ -16,7 +16,7 @@
       value: true
 
 - id: check-eq-alias
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.number
     operator: ==
@@ -28,7 +28,7 @@
       value: true
 
 - id: check-neq
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.value
     operator: NEQ
@@ -42,7 +42,7 @@
 # --- Numeric Comparisons ---
 
 - id: check-gt
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.number
     operator: GT
@@ -54,7 +54,7 @@
       value: true
 
 - id: check-gte
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.number
     operator: GTE
@@ -66,7 +66,7 @@
       value: true
 
 - id: check-lt
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.number
     operator: LT
@@ -78,7 +78,7 @@
       value: true
 
 - id: check-lte
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.number
     operator: LTE
@@ -90,11 +90,11 @@
       value: true
 
 - id: check-range
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.number
     operator: RANGE
-    value: [90, 110]
+    value: [50, 200]
   do:
     type: STATE_SET
     params:
@@ -104,7 +104,7 @@
 # --- String Operations ---
 
 - id: check-contains
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.text
     operator: CONTAINS
@@ -116,7 +116,7 @@
       value: true
 
 - id: check-matches
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.email
     operator: MATCHES
@@ -130,11 +130,11 @@
 # --- List Operations ---
 
 - id: check-in
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.role
     operator: IN
-    value: ["admin", "moderator"]
+    value: asdasd
   do:
     type: STATE_SET
     params:
@@ -142,7 +142,7 @@
       value: true
 
 - id: check-not-in
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.role
     operator: NOT_IN
@@ -157,7 +157,7 @@
 # Assumes data.timestamp is a valid date string or timestamp
 
 - id: check-after
-  "on": TEST_EVENT
+  on: TEST_EVENT
   if:
     field: data.timestamp
     operator: AFTER

@@ -42,8 +42,18 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
       // 2. Semantic Validation (ArkType)
       const json = doc.toJS();
       if (json && typeof json === 'object') {
-          // Handle Array of Rules or Single Rule?
-          const items = Array.isArray(json) ? json : [json];
+          // Handle Wrapper Object (Headers), Array of Rules, or Single Rule
+          let items: any[] = [];
+          
+          // Check if it's a wrapper object with "rules"
+          const isWrapper = !Array.isArray(json) && json.rules && Array.isArray(json.rules);
+          const isArray = Array.isArray(json);
+
+          if (isWrapper) {
+              items = json.rules;
+          } else {
+              items = isArray ? json : [json];
+          }
           
           items.forEach((item, index) => {
                if (item && typeof item === 'object' && item.actions && !item.do) {
@@ -54,7 +64,11 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
                if (!result.valid) {
                    for (const issue of result.issues) {
                        let fullPathParts = issue.path.split('.');
-                       if (Array.isArray(json)) {
+                       
+                       if (isWrapper) {
+                           fullPathParts.unshift(String(index));
+                           fullPathParts.unshift('rules');
+                       } else if (isArray) {
                            fullPathParts.unshift(String(index));
                        }
                        

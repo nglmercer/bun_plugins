@@ -48,7 +48,8 @@ const types = scope({
         
         "if?": "RuleCondition | RuleCondition[]",
         
-        do: "Action | Action[] | ActionGroup"
+        do: "Action | Action[] | ActionGroup",
+        "comment?": "string"
     }
 }).export();
 
