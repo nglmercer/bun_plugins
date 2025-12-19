@@ -125,7 +125,120 @@ export class TriggerValidator {
 
       return { valid: false, issues };
     }
+    
+    // Structural validation passed. Now perform Semantic Validation (Value Types)
+    const rule = out as TriggerRule;
+    const semanticIssues: ValidationIssue[] = [];
+    
+    this.validateConditionsRecursive(rule.if, semanticIssues, 'if');
 
-    return { valid: true, rule: out as TriggerRule };
+    if (semanticIssues.length > 0) {
+        return { valid: false, issues: semanticIssues };
+    }
+
+    return { valid: true, rule };
+  }
+
+  private static validateConditionsRecursive(
+      condition: any, 
+      issues: ValidationIssue[], 
+      path: string
+  ): void {
+      if (!condition) return;
+
+      if (Array.isArray(condition)) {
+          condition.forEach((c, idx) => {
+              this.validateConditionsRecursive(c, issues, `${path}.${idx}`);
+          });
+          return;
+      }
+
+      // Check if it's a ConditionGroup (has 'conditions')
+      if ('conditions' in condition && Array.isArray(condition.conditions)) {
+          condition.conditions.forEach((c: any, idx: number) => {
+               this.validateConditionsRecursive(c, issues, `${path}.conditions.${idx}`);
+          });
+          return;
+      }
+
+      // It must be a Condition
+      if ('operator' in condition && 'value' in condition) {
+          this.validateConditionValue(condition, issues, path);
+      }
+  }
+
+  private static validateConditionValue(
+      condition: any, 
+      issues: ValidationIssue[], 
+      path: string
+  ): void {
+      const { operator, value } = condition;
+      
+      // 1. List Operators (IN, NOT_IN, RANGE)
+      if (['IN', 'NOT_IN', 'RANGE'].includes(operator)) {
+          if (!Array.isArray(value)) {
+              issues.push({
+                  path: `${path}.value`,
+                  message: `Operator '${operator}' requires a list/array value.`,
+                  suggestion: operator === 'RANGE' ? "Use format [min, max]" : "Use format [item1, item2]",
+                  severity: "error"
+              });
+              return;
+          }
+
+          if (operator === 'RANGE') {
+              if (value.length !== 2) {
+                  issues.push({
+                      path: `${path}.value`,
+                      message: `Operator 'RANGE' requires exactly 2 values (min and max).`,
+                      suggestion: "Use format [min, max]",
+                      severity: "error"
+                  });
+              } else if (typeof value[0] !== 'number' || typeof value[1] !== 'number') {
+                   // Range usually implies numbers, but could be dates? 
+                   // Sticking to numbers for strictness unless 'SINCE' logic applies.
+                   // The user provided example implies generic RANGE. 
+                   // If they use non-numbers, we warn.
+                   if (typeof value[0] !== 'number' && typeof value[0] !== 'string') {
+                        issues.push({
+                            path: `${path}.value`,
+                            message: `Range values must be numbers or strings.`,
+                            severity: "error"
+                        });
+                   }
+              }
+          }
+      } 
+      // 2. Regex
+      else if (operator === 'MATCHES') {
+          if (typeof value !== 'string') {
+               issues.push({
+                  path: `${path}.value`,
+                  message: `Operator 'MATCHES' requires a string regex pattern.`,
+                  severity: "error"
+              });
+          } else {
+              try {
+                  new RegExp(value);
+              } catch (e) {
+                  issues.push({
+                      path: `${path}.value`,
+                      message: `Invalid Regex pattern: ${(e as Error).message}`,
+                      severity: "error"
+                  });
+              }
+          }
+      }
+      // 3. Numeric Comparisons (GT, LT, etc)
+      else if (['GT', 'GTE', 'LT', 'LTE', '>', '>=', '<', '<='].includes(operator)) {
+           if (typeof value !== 'number' && typeof value !== 'string') {
+               // We allow strings for dynamic refs or dates
+               issues.push({
+                   path: `${path}.value`,
+                   message: `Operator '${operator}' requires a comparable value (number or string).`,
+                   severity: "error"
+               });
+           }
+      }
   }
 }

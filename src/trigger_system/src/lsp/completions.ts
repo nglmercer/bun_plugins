@@ -43,11 +43,17 @@ const EVENTS: CompletionItem[] = [
 
 const OPERATORS: CompletionItem[] = [
     { label: 'EQ', kind: CompletionItemKind.Operator, detail: 'Equal' },
+    { label: '==', kind: CompletionItemKind.Operator, detail: 'Equal' },
     { label: 'NEQ', kind: CompletionItemKind.Operator, detail: 'Not Equal' },
+    { label: '!=', kind: CompletionItemKind.Operator, detail: 'Not Equal' },
     { label: 'GT', kind: CompletionItemKind.Operator, detail: 'Greater Than' },
+    { label: '>', kind: CompletionItemKind.Operator, detail: 'Greater Than' },
     { label: 'GTE', kind: CompletionItemKind.Operator, detail: 'Greater Than Equals' },
+    { label: '>=', kind: CompletionItemKind.Operator, detail: 'Greater Than Equals' },
     { label: 'LT', kind: CompletionItemKind.Operator, detail: 'Less Than' },
+    { label: '<', kind: CompletionItemKind.Operator, detail: 'Less Than' },
     { label: 'LTE', kind: CompletionItemKind.Operator, detail: 'Less Than Equals' },
+    { label: '<=', kind: CompletionItemKind.Operator, detail: 'Less Than Equals' },
     { label: 'IN', kind: CompletionItemKind.Operator, detail: 'Value in List' },
     { label: 'NOT_IN', kind: CompletionItemKind.Operator, detail: 'Value not in List' },
     { label: 'CONTAINS', kind: CompletionItemKind.Operator, detail: 'String/List contains' },
@@ -148,8 +154,10 @@ export function getCompletionItems(document: TextDocument, position: Position): 
         // Check if cursor is in key range or value range
         const pair = lastNode as Pair;
         
-        // If cursor is in Value position (after colon)
-        if (pair.value && offset >= (pair.key as Node).range![1]) {
+        // If cursor is in Value position (past the key and its colon)
+        // We use offset check because pair.value might be null for empty values
+        const keyNode = pair.key as Node;
+        if (keyNode.range && offset >= keyNode.range[1]) {
             return getValueCompletions(pair, path);
         }
         
@@ -288,7 +296,10 @@ function getValueSuggestionsForOperator(operator: string): CompletionItem[] {
         case 'NOT_IN':
             return [{ label: '[item1, item2]', kind: CompletionItemKind.Snippet, insertText: '[$1, $2]' }];
         case 'EQ':
+        case '==':
         case 'NEQ':
+        case '!=':
+        case 'CONTAINS':
              return [
                  { label: '"text"', kind: CompletionItemKind.Value, insertText: '"$1"' },
                  { label: '123', kind: CompletionItemKind.Value },
@@ -296,6 +307,19 @@ function getValueSuggestionsForOperator(operator: string): CompletionItem[] {
              ];
         case 'MATCHES':
              return [{ label: '"regex"', kind: CompletionItemKind.Value, insertText: '"^$1$"' }];
+        case 'GT':
+        case '>':
+        case 'GTE':
+        case '>=':
+        case 'LT':
+        case '<':
+        case 'LTE':
+        case '<=':
+              return [
+                 { label: '10', kind: CompletionItemKind.Value },
+                 { label: '0', kind: CompletionItemKind.Value },
+                 { label: '${data.var}', kind: CompletionItemKind.Snippet, insertText: '${data.$1}' }
+             ];
         default:
              return [];
     }
