@@ -44,9 +44,9 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 
 ### B. Stateful & Dynamic Logic (Goals, Repetition)
 
-- [ ] **State Manager**: In-memory store for counters, flags, and sequences.
-- [ ] **State Actions**: `INCREMENT`, `SET`, `RESET` actions to modify state.
-- [ ] **Dynamic Map**: Bind events to state updates to creating "Combo" or "Goal" triggers.
+- [x] **State Manager**: In-memory store for counters, flags, and sequences.
+- [x] **State Actions**: `INCREMENT`, `SET`, `RESET` actions to modify state.
+- [x] **Dynamic Map**: Bind events to state updates to creating "Combo" or "Goal" triggers.
 
 ### B. Robustness & Validation
 
@@ -59,6 +59,7 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 
 - [x] **CLI Tool**: `bun run validate-rules` to check YAML files during CI/CD.
 - [x] **Language Server (LSP)**: Integrated validation for VS Code.
+- [x] **LSP Unit Tests**: Verified via `tests/lsp_diagnostics.test.ts`.
 
 ## 4. Architecture Standards
 
@@ -68,6 +69,6 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 
 ## 5. Future Roadmap
 
-1. **Plugin System**: Allow third-party NPM packages to add Actions/Conditions.
+1. **Plugin System**: Basic implementation in `src/core/plugin-manager.ts`. Allows namespaced actions.
 2. **Dashboard**: Specific UI for managing active rules and viewing logs.
 3. **Database Integration**: Optional persistence for stateful triggers.
