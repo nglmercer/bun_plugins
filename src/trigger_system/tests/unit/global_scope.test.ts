@@ -97,6 +97,7 @@ describe("Global Scope & StateManager Access", () => {
         let receivedMessage = "";
         globalEmitter.on("ping", (payload) => {
             receivedMessage = payload;
+            console.log("Received message:", payload);
         });
 
         const rule: TriggerRule = {

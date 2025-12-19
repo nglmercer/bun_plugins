@@ -1,4 +1,3 @@
-
 import {
   TextDocuments,
   Diagnostic,
@@ -7,7 +6,8 @@ import {
 import {
   TextDocument
 } from 'vscode-languageserver-textdocument';
-import { parseDocument, isMap, isSeq } from 'yaml';
+import { parseDocument, isMap, isSeq, YAMLMap, YAMLSeq } from 'yaml';
+import type { Node, Pair, Scalar } from 'yaml';
 import { TriggerValidator } from '../domain/validator';
 
 /**
@@ -76,26 +76,31 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
 
 
 function findRangeForPath(
-    contents: any, 
+    contents: Node | null, 
     pathParts: string[], 
     textDocument: TextDocument
 ): { start: { line: number, character: number }, end: { line: number, character: number } } {
     
-    let current = contents;
+    let current: Node | null = contents;
     for (const key of pathParts) {
         if (!current) break;
         
         if (isMap(current)) {
-            const pair = current.items.find((p: any) => p.key && String(p.key.value) === key);
-            if (pair) {
-                current = pair.value; 
+            // current is YAMLMap
+            const pair = current.items.find((p: Pair) => {
+                if (isScalar(p.key) && String(p.key.value) === key) return true;
+                return false;
+            });
+            if (pair && pair.value) {
+                current = pair.value as Node; 
             } else {
                 current = null;
             }
         } else if (isSeq(current)) {
+            // current is YAMLSeq
             const idx = parseInt(key);
             if (!isNaN(idx) && current.items[idx]) {
-                current = current.items[idx];
+                current = current.items[idx] as Node;
             } else {
                 current = null;
             }
@@ -115,4 +120,8 @@ function findRangeForPath(
          start: textDocument.positionAt(0),
          end: textDocument.positionAt(0)
     };
+}
+
+function isScalar(node: any): node is Scalar {
+    return node && node.type !== undefined && (node.type === 'SCALAR' || node.type === 'QUOTE_DOUBLE' || node.type === 'QUOTE_SINGLE' || typeof node.value !== 'undefined');
 }

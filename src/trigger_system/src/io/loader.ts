@@ -69,7 +69,17 @@ export class TriggerLoader {
       
       const rules: TriggerRule[] = [];
 
-      docs.forEach((doc: any, index: number) => {
+      // Flatten docs if the root is an array (Single doc with list of rules)
+      let flattenedDocs: any[] = [];
+      docs.forEach(d => {
+          if (Array.isArray(d)) {
+              flattenedDocs.push(...d);
+          } else {
+              flattenedDocs.push(d);
+          }
+      });
+
+      flattenedDocs.forEach((doc: any, index: number) => {
         // Normalize 'actions' to 'do' alias
         if (doc && typeof doc === 'object' && doc.actions && !doc.do) {
             doc.do = doc.actions;
@@ -82,12 +92,12 @@ export class TriggerLoader {
            // Assign ID from filename if missing, with index suffix if multidoc
           if (!rule.id) {
             const base = path.basename(filePath, path.extname(filePath));
-            rule.id = docs.length > 1 ? `${base}-${index}` : base;
+            rule.id = flattenedDocs.length > 1 ? `${base}-${index}` : base;
           }
           rules.push(rule);
         } else {
              // LOG ERROR TO STDERR so it shows up in tests
-             console.error(`\n[TriggerLoader] ⚠️ Validation Problem in ${filePath} (doc #${index + 1})`);
+             console.error(`\n[TriggerLoader] ⚠️ Validation Problem in ${filePath} (item #${index + 1})`);
              validation.issues.forEach(issue => {
                  console.error(`  - [${issue.path}] ${issue.message}`);
                  if (issue.suggestion) {

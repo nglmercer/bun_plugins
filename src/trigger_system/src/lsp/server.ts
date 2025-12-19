@@ -1,22 +1,21 @@
 import {
   createConnection,
   TextDocuments,
-  Diagnostic,
-  DiagnosticSeverity,
   ProposedFeatures,
   DidChangeConfigurationNotification,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node';
 import type {
+  CompletionItem,
+  TextDocumentPositionParams,
   InitializeParams,
   InitializeResult
 } from 'vscode-languageserver/node';
 import {
   TextDocument
 } from 'vscode-languageserver-textdocument';
-import { parseDocument, isMap, isSeq } from 'yaml';
-import { TriggerValidator } from '../domain/validator';
 import { getDiagnosticsForText } from './diagnostics';
+import { getCompletionItems } from './completions';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -76,10 +75,34 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-
 connection.onDidChangeWatchedFiles(_change => {
   connection.console.log('We received an file change event');
 });
+
+// This handler provides the initial list of the completion items.
+connection.onCompletion(
+  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+    const document = documents.get(_textDocumentPosition.textDocument.uri);
+    if (!document) {
+        return [];
+    }
+    return getCompletionItems(document, _textDocumentPosition.position);
+  }
+);
+
+// This handler resolves additional information for the item selected in
+// the completion list.
+connection.onCompletionResolve(
+  (item: CompletionItem): CompletionItem => {
+    /* 
+    if (item.data === 1) {
+      item.detail = 'TypeScript details';
+      item.documentation = 'TypeScript documentation';
+    }
+    */
+    return item;
+  }
+);
 
 documents.listen(connection);
 connection.listen();
