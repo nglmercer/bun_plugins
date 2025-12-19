@@ -10,8 +10,41 @@ const types = scope({
     // List of allowed operators
     Operator: "'EQ' | '==' | 'NEQ' | '!=' | 'GT' | '>' | 'GTE' | '>=' | 'LT' | '<' | 'LTE' | '<=' | 'IN' | 'NOT_IN' | 'CONTAINS' | 'MATCHES' | 'RANGE' | 'SINCE' | 'AFTER' | 'BEFORE' | 'UNTIL'",
     
-    Condition: {
-        field: "string > 0", // Must not be empty
+    // Discriminated union for better value validation based on operator
+    Condition: "RangeCondition | ListCondition | ContainsCondition | NumericCondition | RegexCondition | BasicCondition",
+    
+    RangeCondition: {
+        field: "string > 0",
+        operator: "'RANGE'",
+        value: "unknown[] == 2" // Requires an array of exactly 2 items
+    },
+    
+    ListCondition: {
+        field: "string > 0",
+        operator: "'IN' | 'NOT_IN'",
+        value: "unknown[]" // Requires an array
+    },
+
+    ContainsCondition: {
+        field: "string > 0",
+        operator: "'CONTAINS'",
+        value: "string | unknown[]" // Can be string (substring) or array (includes)
+    },
+    
+    NumericCondition: {
+        field: "string > 0",
+        operator: "'>' | '>=' | '<' | '<=' | 'GT' | 'GTE' | 'LT' | 'LTE'",
+        value: "number | string" // Numbers or expressions
+    },
+    
+    RegexCondition: {
+        field: "string > 0",
+        operator: "'MATCHES'",
+        value: "string" // Regex pattern must be a string
+    },
+    
+    BasicCondition: {
+        field: "string > 0",
         operator: "Operator",
         value: "unknown"
     },
@@ -174,12 +207,24 @@ export class TriggerValidator {
   ): void {
       const { operator, value } = condition;
       
-      // 1. List Operators (IN, NOT_IN, RANGE)
-      if (['IN', 'NOT_IN', 'RANGE'].includes(operator)) {
+      // 1. List/Collection Operators (IN, NOT_IN, RANGE, CONTAINS)
+      if (['IN', 'NOT_IN', 'RANGE', 'CONTAINS'].includes(operator)) {
+          if (operator === 'CONTAINS') {
+              if (typeof value !== 'string' && !Array.isArray(value)) {
+                  issues.push({
+                      path: `${path}.value`,
+                      message: `Incorrect value type: Operator 'CONTAINS' expects a String or List (Array), but received ${typeof value}.`,
+                      suggestion: "Use a substring or a list of items.",
+                      severity: "error"
+                  });
+              }
+              return;
+          }
+
           if (!Array.isArray(value)) {
               issues.push({
                   path: `${path}.value`,
-                  message: `Operator '${operator}' requires a list/array value.`,
+                  message: `Incorrect value type: Operator '${operator}' expects a List (Array), but received ${typeof value}.`,
                   suggestion: operator === 'RANGE' ? "Use format [min, max]" : "Use format [item1, item2]",
                   severity: "error"
               });
@@ -190,22 +235,16 @@ export class TriggerValidator {
               if (value.length !== 2) {
                   issues.push({
                       path: `${path}.value`,
-                      message: `Operator 'RANGE' requires exactly 2 values (min and max).`,
-                      suggestion: "Use format [min, max]",
+                      message: `Invalid Range: Operator 'RANGE' requires exactly 2 values (min and max).`,
+                      suggestion: "Use format [min, max], e.g. [1, 10]",
                       severity: "error"
                   });
-              } else if (typeof value[0] !== 'number' || typeof value[1] !== 'number') {
-                   // Range usually implies numbers, but could be dates? 
-                   // Sticking to numbers for strictness unless 'SINCE' logic applies.
-                   // The user provided example implies generic RANGE. 
-                   // If they use non-numbers, we warn.
-                   if (typeof value[0] !== 'number' && typeof value[0] !== 'string') {
-                        issues.push({
-                            path: `${path}.value`,
-                            message: `Range values must be numbers or strings.`,
-                            severity: "error"
-                        });
-                   }
+              } else if (typeof value[0] !== 'number' && typeof value[0] !== 'string') {
+                    issues.push({
+                        path: `${path}.value`,
+                        message: `Incorrect range type: Range values must be numbers or expression strings.`,
+                        severity: "error"
+                    });
               }
           }
       } 
@@ -214,7 +253,7 @@ export class TriggerValidator {
           if (typeof value !== 'string') {
                issues.push({
                   path: `${path}.value`,
-                  message: `Operator 'MATCHES' requires a string regex pattern.`,
+                  message: `Incorrect value type: Operator 'MATCHES' expects a string (regex pattern), but received ${typeof value}.`,
                   severity: "error"
               });
           } else {
@@ -232,10 +271,9 @@ export class TriggerValidator {
       // 3. Numeric Comparisons (GT, LT, etc)
       else if (['GT', 'GTE', 'LT', 'LTE', '>', '>=', '<', '<='].includes(operator)) {
            if (typeof value !== 'number' && typeof value !== 'string') {
-               // We allow strings for dynamic refs or dates
                issues.push({
                    path: `${path}.value`,
-                   message: `Operator '${operator}' requires a comparable value (number or string).`,
+                   message: `Incorrect value type: Operator '${operator}' expects a number or expression string, but received ${typeof value}.`,
                    severity: "error"
                });
            }

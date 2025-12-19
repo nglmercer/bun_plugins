@@ -246,14 +246,3 @@
           key: seq_step_2
           value: done
 # --- End of file ---
-- id: "qweqwe"
-  on: test123
-  if:
-    field: data.test
-    operator: RANGE
-    value: qweqweqwe
-  do:
-    type: test123
-    params:
-      key: qweqwe
-      value: true

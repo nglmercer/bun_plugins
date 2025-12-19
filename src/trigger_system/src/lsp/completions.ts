@@ -340,14 +340,15 @@ function findPathAtOffset(node: Node | Pair | null, offset: number, currentPath:
     // Check if offset is within node range
     if ((node as any).range) {
         const [start, end] = (node as any).range;
-        if (offset < start || offset > end) return null;
+        // For completions, we are often at the very end of the range or one char past (space)
+        if (offset < start || offset > end + 1) return null;
     }
 
     const newPath = [...currentPath, node];
 
     if (isMap(node)) {
+         // Sort items by range to find the most specific one
          for (const item of node.items) {
-             // items in Map are Pairs
              const res = findPathAtOffset(item, offset, newPath);
              if (res) return res;
          }
@@ -364,16 +365,19 @@ function findPathAtOffset(node: Node | Pair | null, offset: number, currentPath:
     
     if (isPair(node)) {
         const pair = node as Pair;
-        // Check key
+        
+        // If we are past the key but before/at the value
         if (pair.key) {
              const res = findPathAtOffset(pair.key as Node, offset, newPath);
              if (res) return res;
         }
-        // Check value
+
+        // If we have a value, check it
         if (pair.value) {
             const res = findPathAtOffset(pair.value as Node, offset, newPath);
             if (res) return res;
         }
+        
         return newPath;
     }
 
