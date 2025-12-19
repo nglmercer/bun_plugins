@@ -1,7 +1,7 @@
 
 import { describe, expect, test } from "bun:test";
-import { DependencyAnalyzer } from "../src/core/dependency-graph";
-import type { TriggerRule } from "../src/types";
+import { DependencyAnalyzer } from "../../src/core/dependency-graph";
+import type { TriggerRule } from "../../src/types";
 
 describe("DependencyAnalyzer (Circular Logic)", () => {
     

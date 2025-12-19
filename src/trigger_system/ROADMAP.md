@@ -69,6 +69,17 @@ The Trigger System is a generic, rule-based execution engine designed to handle 
 
 ## 5. Future Roadmap
 
-1. **Plugin System**: Basic implementation in `src/core/plugin-manager.ts`. Allows namespaced actions.
-2. **Dashboard**: Specific UI for managing active rules and viewing logs.
-3. **Database Integration**: Optional persistence for stateful triggers.
+### A. Infrastructure & Persistence
+
+- [ ] **Persistence Layer**: Implement `PersistenceAdapter` (abstract) and `SQLitePersistence` / `RedisPersistence` to save state across restarts. //external implementation not included
+- [ ] **Event Queue**: Implement an event buffer/queue to handle high load without dropping events.
+
+### B. Advanced Features
+
+- [ ] **Standard Library**: Built-in modules for common triggers (HTTP Webhook, Cron/Timer, File Watch).
+- [ ] **Advanced Plugin System**: Support `conditions`, `event_sources`, and life-cycle hooks in plugins.
+
+### C. Documentation
+
+- [ ] **Documentation Generator**: Auto-generate API reference from code.
+- [ ] **User Guide Website**: Comprehensive guide with tutorials and examples.

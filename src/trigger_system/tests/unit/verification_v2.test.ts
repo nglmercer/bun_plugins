@@ -1,9 +1,9 @@
 
 import { describe, expect, test } from "bun:test";
-import { RuleEngine } from "../src/core/rule-engine";
-import { ActionRegistry } from "../src/core/action-registry";
-import { ExpressionEngine } from "../src/core/expression-engine";
-import type { TriggerRule, TriggerContext } from "../src/types";
+import { RuleEngine } from "../../src/core/rule-engine";
+import { ActionRegistry } from "../../src/core/action-registry";
+import { ExpressionEngine } from "../../src/core/expression-engine";
+import type { TriggerRule, TriggerContext } from "../../src/types";
 
 describe("Verification V2: New Features", () => {
     

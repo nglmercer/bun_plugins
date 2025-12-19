@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ExpressionEngine } from "../src/core/expression-engine";
+import { ExpressionEngine } from "../../src/core/expression-engine";
 
 describe("Expression Engine Tests", () => {
     

@@ -1,8 +1,8 @@
 
 import { describe, expect, test, beforeEach } from "bun:test";
-import { RuleEngine } from "../src/core/rule-engine";
-import { StateManager } from "../src/core/state-manager";
-import type { TriggerRule, TriggerContext } from "../src/types";
+import { RuleEngine } from "../../src/core/rule-engine";
+import { StateManager } from "../../src/core/state-manager";
+import type { TriggerRule, TriggerContext } from "../../src/types";
 
 describe("Stateful Logic Triggers", () => {
     

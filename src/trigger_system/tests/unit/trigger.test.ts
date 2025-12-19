@@ -1,5 +1,5 @@
 import { describe, expect, test, mock, beforeAll } from "bun:test";
-import { TriggerEngine } from "../src/core/engine";
+import { TriggerEngine } from "../../src/core/engine";
 import * as path from "path";
 
 describe("Trigger System", () => {

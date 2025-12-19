@@ -1,8 +1,8 @@
 
 import { describe, expect, test } from "bun:test";
-import { PluginManager } from "../src/core/plugin-manager";
-import { ActionRegistry } from "../src/core/action-registry";
-import { RuleEngine } from "../src/core/rule-engine";
+import { PluginManager } from "../../src/core/plugin-manager";
+import { ActionRegistry } from "../../src/core/action-registry";
+import { RuleEngine } from "../../src/core/rule-engine";
 
 describe("Plugin System", () => {
     

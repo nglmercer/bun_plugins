@@ -106,7 +106,7 @@ export class ActionRegistry {
 
     // --- State Actions ---
 
-    this.register("STATE_SET", (action, context) => {
+    this.register("STATE_SET", async (action, context) => {
         const key = action.params?.key;
         const value = action.params?.value;
         if (!key) return { error: "Missing key for STATE_SET" };
@@ -117,16 +117,16 @@ export class ActionRegistry {
             finalValue = ExpressionEngine.interpolate(value, context);
         }
 
-        StateManager.getInstance().set(key, finalValue);
+        await StateManager.getInstance().set(key, finalValue);
         return { key, value: finalValue };
     });
 
-    this.register("STATE_INCREMENT", (action, context) => {
+    this.register("STATE_INCREMENT", async (action, context) => {
         const key = action.params?.key;
         const amount = Number(action.params?.amount) || 1;
         if (!key) return { error: "Missing key for STATE_INCREMENT" };
 
-        const newValue = StateManager.getInstance().increment(key, amount);
+        const newValue = await StateManager.getInstance().increment(key, amount);
         return { key, newValue };
     });
 

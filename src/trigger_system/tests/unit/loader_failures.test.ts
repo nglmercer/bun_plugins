@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll } from "bun:test";
-import { TriggerLoader } from "../src/io/loader";
+import { TriggerLoader } from "../../src/io/loader";
 import * as path from "path";
 
 describe("TriggerLoader Error Handling", () => {

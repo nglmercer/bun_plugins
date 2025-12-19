@@ -1,4 +1,6 @@
 
+import { type PersistenceAdapter, InMemoryPersistence } from "./persistence";
+
 /**
  * State Manager
  * Handles persistent state across rule executions.
@@ -7,9 +9,11 @@
 export class StateManager {
   private static instance: StateManager;
   private state: Map<string, any>;
+  private persistence: PersistenceAdapter;
 
   private constructor() {
     this.state = new Map();
+    this.persistence = new InMemoryPersistence();
   }
 
   static getInstance(): StateManager {
@@ -20,52 +24,61 @@ export class StateManager {
   }
 
   /**
-   * Get a value from the state. Supports nested paths? 
-   * For now, flat keys or simple dot notation could be supported by the caller,
-   * but here we store raw values.
+   * Configure the persistence adapter.
+   */
+  setPersistence(adapter: PersistenceAdapter) {
+      this.persistence = adapter;
+  }
+
+  /**
+   * Load state from persistence. Should be called at startup.
+   */
+  async initialize(): Promise<void> {
+      const loaded = await this.persistence.loadState();
+      this.state = loaded;
+      console.log(`[StateManager] Initialized with ${this.state.size} keys.`);
+  }
+
+  /**
+   * Get a value from the state. 
    */
   get(key: string): any {
     return this.state.get(key);
   }
 
   /**
-   * Set a value in the state.
+   * Set a value in the state and persist it.
    */
-  set(key: string, value: any): void {
+  async set(key: string, value: any): Promise<void> {
     this.state.set(key, value);
+    await this.persistence.saveState(key, value);
   }
 
   /**
-   * Increment a numeric value in the state.
-   * Initialize to 0 if not exists.
+   * Increment a numeric value explicitly.
    */
-  increment(key: string, amount: number = 1): number {
+  async increment(key: string, amount: number = 1): Promise<number> {
     const current = this.get(key) || 0;
     const newVal = Number(current) + amount;
-    this.set(key, newVal);
+    await this.set(key, newVal);
     return newVal;
   }
   
-    /**
-   * Decrement a numeric value.
-   */
-  decrement(key: string, amount: number = 1): number {
+  async decrement(key: string, amount: number = 1): Promise<number> {
       return this.increment(key, -amount);
   }
 
-
-  /**
-   * Delete a key from state.
-   */
-  delete(key: string): boolean {
-    return this.state.delete(key);
+  async delete(key: string): Promise<boolean> {
+    const deleted = this.state.delete(key);
+    if (deleted) {
+        await this.persistence.deleteState(key);
+    }
+    return deleted;
   }
 
-  /**
-   * Clear all state.
-   */
-  clear(): void {
+  async clear(): Promise<void> {
     this.state.clear();
+    await this.persistence.clearState();
   }
 
   /**
