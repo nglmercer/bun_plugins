@@ -95,7 +95,11 @@ export class ActionRegistry {
                 url,
                 method,
                 status: response.status,
-                headers: Object.fromEntries(response.headers.entries()),
+                headers: (() => {
+                    const h: Record<string, string> = {};
+                    response.headers.forEach((v, k) => h[k] = v);
+                    return h;
+                })(),
                 body: await response.text(),
             };
         } catch (error) {

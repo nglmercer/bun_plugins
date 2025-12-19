@@ -36,7 +36,11 @@ export class ContextAdapter {
                 method: req.method,
                 path: url.pathname,
                 query: Object.fromEntries(url.searchParams),
-                headers: Object.fromEntries(req.headers),
+                headers: (() => {
+                    const h: Record<string, string> = {};
+                    req.headers.forEach((v, k) => h[k] = v);
+                    return h;
+                })(),
                 body: bodyData || {}
             },
             globals: {

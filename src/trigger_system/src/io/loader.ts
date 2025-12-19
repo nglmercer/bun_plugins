@@ -1,25 +1,33 @@
+
 import * as path from "path";
 import * as fs from "fs";
 import { parse } from "yaml";
 import type { TriggerRule } from "../types";
 import { TriggerValidator } from "../domain/validator";
-
+import { parseAllDocuments } from "yaml";
 export class TriggerLoader {
   /**
    * Loads all YAML rule files from a directory
-   * @param dirPath Absolute path to the directory containing rule definitions
    */
   static async loadRulesFromDir(dirPath: string): Promise<TriggerRule[]> {
     const rules: TriggerRule[] = [];
     
     // Recursive walker function
     const walk = async (dir: string) => {
-        const files = await fs.promises.readdir(dir, { withFileTypes: true });
+        let files;
+        try {
+            files = await fs.promises.readdir(dir, { withFileTypes: true });
+        } catch (e) {
+            console.error(`[TriggerLoader] Failed to readdir ${dir}:`, e);
+            return;
+        }
+
         for (const dirent of files) {
             const res = path.resolve(dir, dirent.name);
             if (dirent.isDirectory()) {
                 await walk(res);
-            } else if (res.endsWith('.yaml') || res.endsWith('.yml')) {
+            } else if (res.toLowerCase().endsWith('.yaml') || res.toLowerCase().endsWith('.yml')) {
+                 // Case insensitive extension check
                 try {
                     const loaded = await this.loadRule(res);
                     rules.push(...loaded);
@@ -46,8 +54,10 @@ export class TriggerLoader {
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       
-      const data = parse(content);
-      const docs = Array.isArray(data) ? data : [data];
+      // Support multi-document YAML
+      const yamlDocs = parseAllDocuments(content);
+      const docs = yamlDocs.map(doc => doc.toJS());
+      
       const rules: TriggerRule[] = [];
 
       docs.forEach((doc: any, index: number) => {
@@ -67,11 +77,12 @@ export class TriggerLoader {
           }
           rules.push(rule);
         } else {
-             console.warn(`\n[TriggerLoader] ⚠️ Validation Problem in ${filePath} (doc #${index + 1})`);
+             // LOG ERROR TO STDERR so it shows up in tests
+             console.error(`\n[TriggerLoader] ⚠️ Validation Problem in ${filePath} (doc #${index + 1})`);
              validation.issues.forEach(issue => {
-                 console.warn(`  - [${issue.path}] ${issue.message}`);
+                 console.error(`  - [${issue.path}] ${issue.message}`);
                  if (issue.suggestion) {
-                     console.warn(`    💡 Suggestion: ${issue.suggestion}`);
+                     console.error(`    💡 Suggestion: ${issue.suggestion}`);
                  }
              });
         }
@@ -83,23 +94,13 @@ export class TriggerLoader {
       throw error;
     }
   }
-  /**
-   * Watches a directory for changes and reloads rules automatically.
-   * @param dirPath Directory to watch
-   * @param onUpdate Callback function that receives the updated list of rules
-   * @returns FSWatcher instance (call .close() to stop watching)
-   */
+
   static watchRules(dirPath: string, onUpdate: (rules: TriggerRule[]) => void) {
-    // Initial load
     this.loadRulesFromDir(dirPath).then(onUpdate);
-
     console.log(`[TriggerLoader] Watching for changes in ${dirPath}...`);
-
     const watcher = fs.watch(dirPath, { recursive: true }, async (event, filename) => {
-      // Check if it's a YAML file
       if (filename && (String(filename).endsWith('.yaml') || String(filename).endsWith('.yml'))) {
         console.log(`[TriggerLoader] Detected change in ${filename} (${event}). Reloading rules...`);
-        
         try {
           const rules = await this.loadRulesFromDir(dirPath);
           onUpdate(rules);
@@ -109,8 +110,6 @@ export class TriggerLoader {
         }
       }
     });
-
-
     return watcher;
   }
 }

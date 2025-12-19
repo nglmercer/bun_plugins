@@ -25,8 +25,12 @@ describe("Trigger System Integration", () => {
             return { processed: true, data: context.data.value };
         });
         
-        // Load rules from example directory
-        await engine.loadRules(path.join(import.meta.dir, "../rules"));
+        // Load the sample rules
+        const rulesPath = path.join(import.meta.dir, "../rules");
+        console.log(`[TEST] Loading rules from: ${rulesPath}`);
+        await engine.loadRules(rulesPath);
+        // @ts-ignore
+        console.log(`[TEST] Rules Loaded: ${engine.rules.length}`);
     });
 
     // --- Basic Flow ---
