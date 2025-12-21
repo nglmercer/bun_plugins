@@ -65,7 +65,8 @@ export class DataContext {
      * Get all fields at a given path prefix
      */
     getFields(prefix: string = ''): Array<{ name: string; type: string; value?: any }> {
-        if (!prefix || prefix === 'data') {
+        // If no prefix or empty, return all top-level keys (aliases)
+        if (!prefix || prefix === '') {
             return Object.keys(this.data).map(key => ({
                 name: key,
                 type: this.getTypeOf(this.data[key]),
@@ -73,8 +74,8 @@ export class DataContext {
             }));
         }
 
-        // Navigate to the prefix
-        const value = this.getValue(prefix.replace(/^data\./, ''));
+        // Navigate to the prefix path
+        const value = this.getValue(prefix);
         if (value && typeof value === 'object' && !Array.isArray(value)) {
             return Object.keys(value).map(key => ({
                 name: key,
@@ -152,6 +153,9 @@ export function loadDataFromImports(imports: Array<{ alias: string; path: string
     // Clear existing data first
     globalDataContext.clear();
     
+    // Create a new data object to hold all imports
+    const allImports: Record<string, any> = {};
+    
     for (const import_ of imports) {
         try {
             const dataContext = new DataContext();
@@ -160,16 +164,18 @@ export function loadDataFromImports(imports: Array<{ alias: string; path: string
             // Get the data using the public getValue method
             const importedData = dataContext.getValue('');
             if (importedData && typeof importedData === 'object') {
-                // Always nest under the alias, even if alias is 'data'
-                // This ensures consistent behavior: data.username, config.username, etc.
-                globalDataContext.loadFromObject({
-                    [import_.alias]: importedData
-                });
+                // Store under the alias name
+                allImports[import_.alias] = importedData;
             }
             
             console.log(`Loaded data from import: ${import_.alias} -> ${import_.path}`);
         } catch (error) {
             console.error(`Failed to load import ${import_.alias} from ${import_.path}:`, error);
         }
+    }
+    
+    // Load all imports into the global context
+    if (Object.keys(allImports).length > 0) {
+        globalDataContext.loadFromObject(allImports);
     }
 }

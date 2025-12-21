@@ -52,6 +52,83 @@ export function getSemanticTokens(text: string): number[] {
     return builder.build().data;
 }
 
+/**
+ * Process comments to highlight directives
+ */
+function processCommentsForDirectives(text: string, builder: SemanticTokensBuilder, lineCounter: LineCounter) {
+    const lines = text.split('\n');
+    
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex] || '';
+        
+        // Check if line is a comment
+        if (!line.trim().startsWith('#')) continue;
+        
+        // Look for directives in the comment
+        const directiveRegex = /@([\w-]+)/g;
+        let match;
+        
+        while ((match = directiveRegex.exec(line)) !== null) {
+            const directiveName = match[1];
+            const startIndex = match.index;
+            const endIndex = startIndex + match[0].length;
+            
+            // Calculate position in the document
+            let charOffset = 0;
+            for (let i = 0; i < lineIndex; i++) {
+                const currentLine = lines[i] || '';
+                charOffset += currentLine.length + 1; // +1 for newline
+            }
+            charOffset += startIndex;
+            
+            const startPos = lineCounter.linePos(charOffset);
+            
+            // Determine token type based on directive
+            let tokenType = TOKEN_TYPES.keyword;
+            
+            switch (directiveName) {
+                case 'import':
+                    tokenType = TOKEN_TYPES.function; // Import is like a function
+                    break;
+                case 'disable-lint':
+                case 'enable-lint':
+                case 'disable-next-line':
+                case 'disable-line':
+                case 'disable-rule':
+                case 'enable-rule':
+                    tokenType = TOKEN_TYPES.operator; // Lint directives are operators
+                    break;
+                default:
+                    tokenType = TOKEN_TYPES.keyword;
+            }
+            
+            builder.push(
+                startPos.line - 1,
+                startPos.col - 1,
+                endIndex - startIndex,
+                tokenType,
+                0
+            );
+        }
+        
+        // Also highlight the @ symbol
+        const atSymbolRegex = /@/g;
+        while ((match = atSymbolRegex.exec(line)) !== null) {
+            const startIndex = match.index;
+            const charOffset = lineIndex * (line.length + 1) + startIndex;
+            const pos = lineCounter.linePos(charOffset);
+            
+            builder.push(
+                pos.line - 1,
+                pos.col - 1,
+                1, // @ symbol length
+                TOKEN_TYPES.operator,
+                0
+            );
+        }
+    }
+}
+
 function visit(node: Node | null, builder: SemanticTokensBuilder, lineCounter: LineCounter) {
     if (!node) return;
 

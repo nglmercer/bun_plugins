@@ -225,6 +225,8 @@ export function getCompletionItems(document: TextDocument, position: Position): 
  * Check if cursor is inside a template variable and return the context
  */
 function checkTemplateVariable(line: string, character: number): { prefix: string; inTemplate: boolean } | null {
+    console.log(`[LSP] checkTemplateVariable - line: "${line}", character: ${character}`);
+    
     // Find all template variable positions in the line
     const regex = /\$\{([^}]*)\}/g;
     let match;
@@ -233,10 +235,14 @@ function checkTemplateVariable(line: string, character: number): { prefix: strin
         const start = match.index;
         const end = match.index + match[0].length;
         
-        // Check if cursor is inside this template
-        if (character > start && character <= end) {
+        console.log(`[LSP] Found template: "${match[0]}" at positions ${start}-${end}`);
+        
+        // Check if cursor is inside this template (inclusive of start and end)
+        if (character >= start && character <= end) {
             const content = match[1] || '';
             const dotIndex = content.lastIndexOf('.');
+            
+            console.log(`[LSP] Cursor inside template, content: "${content}", dotIndex: ${dotIndex}`);
             
             return {
                 prefix: dotIndex >= 0 ? content.substring(0, dotIndex + 1) : content,
@@ -250,9 +256,13 @@ function checkTemplateVariable(line: string, character: number): { prefix: strin
     const lastDollarBrace = beforeCursor.lastIndexOf('${');
     const lastCloseBrace = beforeCursor.lastIndexOf('}');
     
+    console.log(`[LSP] Checking for incomplete template - lastDollarBrace: ${lastDollarBrace}, lastCloseBrace: ${lastCloseBrace}`);
+    
     if (lastDollarBrace > lastCloseBrace) {
         const content = beforeCursor.substring(lastDollarBrace + 2);
         const dotIndex = content.lastIndexOf('.');
+        
+        console.log(`[LSP] Found incomplete template, content: "${content}", dotIndex: ${dotIndex}`);
         
         return {
             prefix: dotIndex >= 0 ? content.substring(0, dotIndex + 1) : content,
@@ -260,6 +270,31 @@ function checkTemplateVariable(line: string, character: number): { prefix: strin
         };
     }
     
+    // Check if we're right at the $ or { position and should start a new template
+    if (character > 0) {
+        const charBefore = line[character - 1];
+        if (charBefore === '$' || charBefore === '{') {
+            console.log(`[LSP] Found $ or { at position ${character - 1}`);
+            return {
+                prefix: '',
+                inTemplate: true
+            };
+        }
+    }
+    
+    // Special check: if we're at the very beginning of a potential template
+    if (character < line.length) {
+        const remaining = line.substring(character);
+        if (remaining.startsWith('${') || remaining.startsWith('{')) {
+            console.log(`[LSP] Found potential template start at current position`);
+            return {
+                prefix: '',
+                inTemplate: true
+            };
+        }
+    }
+    
+    console.log(`[LSP] No template found`);
     return null;
 }
 
@@ -288,7 +323,7 @@ function getTemplateVariableCompletions(context: { prefix: string; inTemplate: b
     const cleanPrefix = prefix.replace('${', '').replace(/\.$/, '');
     console.log(`[LSP] Clean prefix: "${cleanPrefix}"`);
     
-    // If we're at root level, suggest all available top-level variables
+    // If we're at root level, suggest all available top-level variables (aliases)
     if (!cleanPrefix || cleanPrefix === '') {
         const suggestions = Object.keys(allData).map(key => {
             const value = allData[key];
@@ -308,6 +343,7 @@ function getTemplateVariableCompletions(context: { prefix: string; inTemplate: b
     }
     
     // If we have a specific prefix, get fields from that path
+    // The prefix might be something like "data" or "data.server" or "config.username"
     const fields = globalDataContext.getFields(cleanPrefix);
     console.log(`[LSP] Fields for prefix "${cleanPrefix}":`, fields.map(f => f.name));
     

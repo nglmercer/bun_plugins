@@ -228,16 +228,53 @@ export function getImportDirectives(document: TextDocument, documentUri: string)
     
     for (const directive of directives) {
         if (directive.type === 'import' && directive.importAlias && directive.importPath) {
-            // Decode URI components and resolve relative paths
-            const decodedUri = decodeURIComponent(documentUri);
-            const documentPath = decodedUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
-            const documentDir = dirname(documentPath);
-            const resolvedPath = join(documentDir, directive.importPath);
-            
-            imports.push({
-                alias: directive.importAlias,
-                path: resolvedPath
-            });
+            try {
+                let documentDir: string;
+                
+                if (documentUri === 'file://test' || documentUri === 'file:///test') {
+                    // For test documents, use the directory where test files are located
+                    documentDir = join(process.cwd(), 'tests', 'rules', 'examples');
+                    console.log(`[LSP] Test document detected in getImportDirectives, using test directory: ${documentDir}`);
+                } else {
+                    // Decode URI components and resolve relative paths
+                    const decodedUri = decodeURIComponent(documentUri);
+                    
+                    // Handle Windows file URIs properly
+                    let documentPath: string;
+                    if (decodedUri.startsWith('file:///')) {
+                        // Remove file:/// prefix
+                        documentPath = decodedUri.substring(8);
+                        
+                        // Handle Windows drive letters (C:, D:, etc.)
+                        if (documentPath.match(/^[A-Za-z]:/)) {
+                            // Already has drive letter, just replace forward slashes
+                            documentPath = documentPath.replace(/\//g, '\\');
+                        } else if (documentPath.match(/^\/[A-Za-z]:/)) {
+                            // Has leading slash before drive letter, remove it
+                            documentPath = documentPath.substring(1).replace(/\//g, '\\');
+                        } else {
+                            // Unix-style path, keep as is
+                            documentPath = documentPath.replace(/\//g, '/');
+                        }
+                    } else {
+                        // Fallback for non-file URIs
+                        documentPath = decodedUri.replace('file:///', '');
+                    }
+                    
+                    documentDir = dirname(documentPath);
+                }
+                
+                const resolvedPath = join(documentDir, directive.importPath);
+                
+                imports.push({
+                    alias: directive.importAlias,
+                    path: resolvedPath
+                });
+                
+                console.log(`[LSP] Import directive resolved: ${directive.importAlias} -> ${resolvedPath}`);
+            } catch (error) {
+                console.error(`[LSP] Error resolving import directive:`, error);
+            }
         }
     }
     

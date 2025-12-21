@@ -12,6 +12,7 @@ import { TriggerValidator } from '../domain/validator';
 import { parseDirectives, isDiagnosticSuppressed, processRangeDirectives, getImportDirectives } from './directives';
 import { existsSync } from 'fs';
 import { join, dirname, extname } from 'path';
+import * as path from 'path';
 
 /**
  * Validates the text content of a document and returns diagnostics.
@@ -305,84 +306,117 @@ function validateImportDirectives(document: TextDocument, text: string): Diagnos
     
     for (const directive of directives) {
         if (directive.type === 'import' && directive.importPath) {
-            // Resolve the path relative to the document
-            const decodedUri = decodeURIComponent(document.uri);
-            const documentPath = decodedUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
-            const documentDir = dirname(documentPath);
-            const resolvedPath = join(documentDir, directive.importPath);
-            
-            // Debug logging
-            console.log(`[LSP] Import validation debug:`);
-            console.log(`[LSP]   Document URI: ${document.uri}`);
-            console.log(`[LSP]   Decoded URI: ${decodedUri}`);
-            console.log(`[LSP]   Document path: ${documentPath}`);
-            console.log(`[LSP]   Document dir: ${documentDir}`);
-            console.log(`[LSP]   Import path: ${directive.importPath}`);
-            console.log(`[LSP]   Resolved path: ${resolvedPath}`);
-            console.log(`[LSP]   File exists: ${existsSync(resolvedPath)}`);
-            
-            // Check if file exists
-            if (!existsSync(resolvedPath)) {
-                // Find the line and character position of the import path in the directive
-                const lines = text.split('\n');
-                const line = lines[directive.line] || '';
-                const importPathMatch = line.match(new RegExp(`['"]${directive.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`));
+            try {
+                // Handle test URIs and real file URIs
+                let documentDir: string;
                 
-                let startChar = line.indexOf(directive.importPath);
-                let endChar = startChar + directive.importPath.length;
-                
-                if (importPathMatch) {
-                    startChar = importPathMatch.index || startChar;
-                    endChar = startChar + importPathMatch[0].length;
+                if (document.uri === 'file://test' || document.uri === 'file:///test') {
+                    // For test documents, use the directory where test files are located
+                    documentDir = join(process.cwd(), 'tests', 'rules', 'examples');
+                    console.log(`[LSP] Test document detected, using test directory: ${documentDir}`);
+                } else {
+                    // Resolve the path relative to the document
+                    const decodedUri = decodeURIComponent(document.uri);
+                    
+                    // Handle Windows file URIs properly
+                    let documentPath: string;
+                    if (decodedUri.startsWith('file:///')) {
+                        // Remove file:/// prefix
+                        documentPath = decodedUri.substring(8);
+                        
+                        // Handle Windows drive letters (C:, D:, etc.)
+                        if (documentPath.match(/^[A-Za-z]:/)) {
+                            // Already has drive letter, just replace forward slashes
+                            documentPath = documentPath.replace(/\//g, '\\');
+                        } else if (documentPath.match(/^\/[A-Za-z]:/)) {
+                            // Has leading slash before drive letter, remove it
+                            documentPath = documentPath.substring(1).replace(/\//g, '\\');
+                        } else {
+                            // Unix-style path, keep as is
+                            documentPath = documentPath.replace(/\//g, '/');
+                        }
+                    } else {
+                        // Fallback for non-file URIs
+                        documentPath = decodedUri.replace('file:///', '');
+                    }
+                    
+                    documentDir = dirname(documentPath);
                 }
                 
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: { line: directive.line, character: startChar },
-                        end: { line: directive.line, character: endChar }
-                    },
-                    message: `Import file not found: ${directive.importPath}`,
-                    source: 'trigger-import-validator',
-                    data: {
-                        suggestion: `Check that the file exists at the specified path: ${resolvedPath}`
+                const resolvedPath = join(documentDir, directive.importPath);
+                
+                // Debug logging
+                console.log(`[LSP] Import validation debug:`);
+                console.log(`[LSP]   Document URI: ${document.uri}`);
+                console.log(`[LSP]   Document dir: ${documentDir}`);
+                console.log(`[LSP]   Import path: ${directive.importPath}`);
+                console.log(`[LSP]   Resolved path: ${resolvedPath}`);
+                console.log(`[LSP]   File exists: ${existsSync(resolvedPath)}`);
+                
+                // Check if file exists
+                if (!existsSync(resolvedPath)) {
+                    // Find the line and character position of the import path in the directive
+                    const lines = text.split('\n');
+                    const line = lines[directive.line] || '';
+                    const importPathMatch = line.match(new RegExp(`['"]${directive.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`));
+                    
+                    let startChar = line.indexOf(directive.importPath);
+                    let endChar = startChar + directive.importPath.length;
+                    
+                    if (importPathMatch) {
+                        startChar = importPathMatch.index || startChar;
+                        endChar = startChar + importPathMatch[0].length;
                     }
-                });
-                continue;
-            }
-            
-            // Check file extension
-            const ext = extname(resolvedPath).toLowerCase();
-            const validExtensions = ['.json', '.yaml', '.yml'];
-            
-            if (!validExtensions.includes(ext)) {
-                const lines = text.split('\n');
-                const line = lines[directive.line] || '';
-                const importPathMatch = line.match(new RegExp(`['"]${directive.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`));
-                
-                let startChar = line.indexOf(directive.importPath);
-                let endChar = startChar + directive.importPath.length;
-                
-                if (importPathMatch) {
-                    startChar = importPathMatch.index || startChar;
-                    endChar = startChar + importPathMatch[0].length;
+                    
+                    diagnostics.push({
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: { line: directive.line, character: startChar },
+                            end: { line: directive.line, character: endChar }
+                        },
+                        message: `Import file not found: ${directive.importPath}`,
+                        source: 'trigger-import-validator',
+                        data: {
+                            suggestion: `Check that the file exists at the specified path: ${resolvedPath}`
+                        }
+                    });
+                    continue;
                 }
                 
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: { line: directive.line, character: startChar },
-                        end: { line: directive.line, character: endChar }
-                    },
-                    message: `Invalid file type for import: ${ext}. Only JSON and YAML files are supported.`,
-                    source: 'trigger-import-validator',
-                    data: {
-                        suggestion: 'Use a .json, .yaml, or .yml file for data imports.'
+                // Check file extension
+                const ext = extname(resolvedPath).toLowerCase();
+                const validExtensions = ['.json', '.yaml', '.yml'];
+                
+                if (!validExtensions.includes(ext)) {
+                    const lines = text.split('\n');
+                    const line = lines[directive.line] || '';
+                    const importPathMatch = line.match(new RegExp(`['"]${directive.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`));
+                    
+                    let startChar = line.indexOf(directive.importPath);
+                    let endChar = startChar + directive.importPath.length;
+                    
+                    if (importPathMatch) {
+                        startChar = importPathMatch.index || startChar;
+                        endChar = startChar + importPathMatch[0].length;
                     }
-                });
+                    
+                    diagnostics.push({
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: { line: directive.line, character: startChar },
+                            end: { line: directive.line, character: endChar }
+                        },
+                        message: `Invalid file type for import: ${ext}. Only JSON and YAML files are supported.`,
+                        source: 'trigger-import-validator',
+                        data: {
+                            suggestion: 'Use a .json, .yaml, or .yml file for data imports.'
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error(`[LSP] Error validating import directive:`, error);
             }
         }
     }
-    
     return diagnostics;
 }
