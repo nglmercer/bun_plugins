@@ -51,3 +51,23 @@
     params:
       key: contains_array_result
       value: true
+
+- id: check-since
+  on: TEST_EVENT
+  if:
+    field: data.timestamp
+    operator: SINCE
+    value: "2023-01-01T00:00:00Z" # True if timestamp is >= this date
+  do:
+    type: LOG
+    params: { msg: "Since Check" }
+
+- id: check-until
+  on: TEST_EVENT
+  if:
+    field: data.timestamp
+    operator: UNTIL
+    value: "2025-01-01T00:00:00Z" # True if timestamp is <= this date
+  do:
+    type: LOG
+    params: { msg: "Until Check" }
