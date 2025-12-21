@@ -4,6 +4,10 @@
   "description": "LSP Client for Trigger System",
   "version": "0.0.1",
   "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nglmercer/bun_plugins"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
