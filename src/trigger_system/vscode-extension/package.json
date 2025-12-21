@@ -3,7 +3,7 @@
   "displayName": "Trigger System Client",
   "description": "LSP Client for Trigger System",
   "version": "0.0.1",
-  "publisher": "local",
+  "publisher": "nglmercer",
   "repository": {
     "type": "git",
     "url": "https://github.com/nglmercer/bun_plugins"
@@ -46,7 +46,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "cd .. && npm run build:lsp && tsc -b",
     "compile": "tsc -b",
     "watch": "tsc -b -w"
   },

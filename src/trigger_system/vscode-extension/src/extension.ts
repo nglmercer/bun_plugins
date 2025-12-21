@@ -12,22 +12,55 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
   console.log('Trigger System LSP Client: Activating extension...');
   
-  // The server is implemented in node, but we use 'bun' to run the TS directly
-  const serverCommand = 'bun';
+  // Try to find the server in different possible locations
+  let serverPath: string;
+  const possiblePaths = [
+    path.join(context.extensionPath, 'dist/lsp/server.js'),   // Production (prepared)
+    path.join(context.extensionPath, '../dist/lsp/server.js'), // Development
+    path.join(context.extensionPath, 'server.js')             // Fallback
+  ];
   
-  // Point to the server.ts file in the parent directory
-  // context.extensionPath is the path to this vscode-extension folder
-  const serverPath = path.join(context.extensionPath, '../src/lsp/server.ts');
+  for (const tryPath of possiblePaths) {
+    if (require('fs').existsSync(tryPath)) {
+      serverPath = tryPath;
+      console.log(`Trigger System LSP Client: Found server at: ${serverPath}`);
+      break;
+    }
+  }
   
-  console.log(`Trigger System LSP Client: Server path: ${serverPath}`);
+  if (!serverPath!) {
+    console.error('Trigger System LSP Client: Could not find server.js in any of:', possiblePaths);
+    throw new Error('LSP Server not found. Please run "npm run build:lsp" first.');
+  }
   
-  const serverArgs = ['run', serverPath, '--stdio'];
-
-  // If the extension is launched in debug mode then the debug server options are used
-  // Otherwise the run options are used
+  // Use node to run the compiled JavaScript server
+  const serverCommand = 'node';
+  const serverArgs = [serverPath!, '--stdio'];
+  
+  // Set up environment to find node_modules from parent project
   const serverOptions: ServerOptions = {
-    run: { command: serverCommand, args: serverArgs, transport: TransportKind.stdio },
-    debug: { command: serverCommand, args: serverArgs, transport: TransportKind.stdio }
+    run: {
+      command: serverCommand,
+      args: serverArgs,
+      transport: TransportKind.stdio,
+      options: {
+        env: {
+          ...process.env,
+          NODE_PATH: path.join(context.extensionPath, '..', 'node_modules')
+        }
+      }
+    },
+    debug: {
+      command: serverCommand,
+      args: serverArgs,
+      transport: TransportKind.stdio,
+      options: {
+        env: {
+          ...process.env,
+          NODE_PATH: path.join(context.extensionPath, '..', 'node_modules')
+        }
+      }
+    }
   };
 
   // Options to control the language client
