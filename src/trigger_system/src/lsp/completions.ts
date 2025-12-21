@@ -9,6 +9,7 @@ import type {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDocument, isMap, isSeq, isPair, isScalar, type Node, Scalar, YAMLMap, Pair, YAMLSeq } from 'yaml';
+import { globalDataContext, autoLoadDataContext } from './data-context';
 
 // --- CONSTANTS & DEFINITIONS ---
 
@@ -160,11 +161,20 @@ const SNIPPETS: CompletionItem[] = [
 // --- MAIN LOGIC ---
 
 export function getCompletionItems(document: TextDocument, position: Position): CompletionItem[] {
+    // Auto-load data context from workspace
+    autoLoadDataContext(document.uri);
+    
     const text = document.getText();
     const doc = parseDocument(text);
     const lines = text.split('\n');
     const line = lines[position.line] || '';
     const offset = document.offsetAt(position);
+    
+    // Check if we're inside a template variable ${...}
+    const templateMatch = checkTemplateVariable(line, position.character);
+    if (templateMatch) {
+        return getTemplateVariableCompletions(templateMatch);
+    }
     
     // 1. Check if we are in a VALUE position (after colon)
     const colonIndex = line.indexOf(':');
@@ -177,6 +187,88 @@ export function getCompletionItems(document: TextDocument, position: Position): 
     // 2. We are in a KEY position or start of line
     const path = findPathAtOffset(doc.contents, offset) || [];
     return getKeyCompletions(path, line);
+}
+
+/**
+ * Check if cursor is inside a template variable and return the context
+ */
+function checkTemplateVariable(line: string, character: number): { prefix: string; inTemplate: boolean } | null {
+    // Find all template variable positions in the line
+    const regex = /\$\{([^}]*)\}/g;
+    let match;
+    
+    while ((match = regex.exec(line)) !== null) {
+        const start = match.index;
+        const end = match.index + match[0].length;
+        
+        // Check if cursor is inside this template
+        if (character > start && character <= end) {
+            const content = match[1] || '';
+            const dotIndex = content.lastIndexOf('.');
+            
+            return {
+                prefix: dotIndex >= 0 ? content.substring(0, dotIndex + 1) : content,
+                inTemplate: true
+            };
+        }
+    }
+    
+    // Check if we're typing after ${
+    const beforeCursor = line.substring(0, character);
+    const lastDollarBrace = beforeCursor.lastIndexOf('${');
+    const lastCloseBrace = beforeCursor.lastIndexOf('}');
+    
+    if (lastDollarBrace > lastCloseBrace) {
+        const content = beforeCursor.substring(lastDollarBrace + 2);
+        const dotIndex = content.lastIndexOf('.');
+        
+        return {
+            prefix: dotIndex >= 0 ? content.substring(0, dotIndex + 1) : content,
+            inTemplate: true
+        };
+    }
+    
+    return null;
+}
+
+/**
+ * Get completions for template variables
+ */
+function getTemplateVariableCompletions(context: { prefix: string; inTemplate: boolean }): CompletionItem[] {
+    const prefix = context.prefix.trim();
+    
+    // ${data.
+    if (prefix === 'data.' || prefix === '${data.') {
+        const fields = globalDataContext.getFields('data');
+        return fields.map(field => ({
+            label: field.name,
+            kind: CompletionItemKind.Field,
+            detail: `${field.type}${field.value !== undefined ? ` = ${globalDataContext.getFormattedValue(field.value)}` : ''}`,
+            documentation: field.value !== undefined 
+                ? `Test value: ${globalDataContext.getFormattedValue(field.value)}`
+                : undefined
+        }));
+    }
+    
+    // ${data.someObject.
+    if (prefix.startsWith('data.') || prefix.startsWith('${data.')) {
+        const cleanPrefix = prefix.replace('${', '').replace(/\.$/, '');
+        const fields = globalDataContext.getFields(cleanPrefix);
+        
+        if (fields.length > 0) {
+            return fields.map(field => ({
+                label: field.name,
+                kind: CompletionItemKind.Field,
+                detail: `${field.type}${field.value !== undefined ? ` = ${globalDataContext.getFormattedValue(field.value)}` : ''}`,
+                documentation: field.value !== undefined 
+                    ? `Test value: ${globalDataContext.getFormattedValue(field.value)}`
+                    : undefined
+            }));
+        }
+    }
+    
+    // Default template suggestions
+    return DYNAMIC_VALUES;
 }
 
 function getValueCompletionsByKey(key: string, path: (Node | Pair)[]): CompletionItem[] {

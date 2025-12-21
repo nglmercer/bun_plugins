@@ -9,6 +9,7 @@ import {
 import { parseDocument, isMap, isSeq, YAMLMap, YAMLSeq } from 'yaml';
 import type { Node, Pair, Scalar } from 'yaml';
 import { TriggerValidator } from '../domain/validator';
+import { parseDirectives, isDiagnosticSuppressed, processRangeDirectives } from './directives';
 
 /**
  * Validates the text content of a document and returns diagnostics.
@@ -21,13 +22,16 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
   // We use the library one if accessible, but for simple calculation this is enough.
   const textDocument = TextDocument.create("file://test", "yaml", 1, text);
 
+  // Parse directives from comments
+  const directives = processRangeDirectives(parseDirectives(textDocument));
+
   // Parse YAML with CST (Concrete Syntax Tree) from 'yaml' package
   const doc = parseDocument(text);
   
   // 1. Syntax Errors
   if (doc.errors.length > 0) {
       for (const err of doc.errors) {
-          diagnostics.push({
+          const diagnostic: Diagnostic = {
               severity: DiagnosticSeverity.Error,
               range: {
                   start: textDocument.positionAt(err.pos[0]),
@@ -35,7 +39,13 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
               },
               message: err.message,
               source: 'yaml-parser'
-          });
+          };
+          
+          // Check if diagnostic is suppressed
+          const line = diagnostic.range.start.line;
+          if (!isDiagnosticSuppressed(line, directives, 'yaml-parser')) {
+              diagnostics.push(diagnostic);
+          }
       }
   }
 
@@ -55,16 +65,20 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
       // If we find '---' after content, it's a multi-document file
       if (line === '---' && foundFirstDocument) {
           const lineStartOffset = text.split('\n').slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
-          diagnostics.push({
-              severity: DiagnosticSeverity.Information,
-              range: {
-                  start: textDocument.positionAt(lineStartOffset),
-                  end: textDocument.positionAt(lineStartOffset + line.length)
-              },
-              message: 'Multi-document YAML detected. Consider using list format (- id: ...) for better compatibility and clearer semantics.',
-              source: 'trigger-best-practices',
-              tags: [1] // DiagnosticTag.Unnecessary would be [1] - marks as hint
-          });
+          
+          // Check if suppressed
+          if (!isDiagnosticSuppressed(i, directives, 'trigger-best-practices')) {
+              diagnostics.push({
+                  severity: DiagnosticSeverity.Information,
+                  range: {
+                      start: textDocument.positionAt(lineStartOffset),
+                      end: textDocument.positionAt(lineStartOffset + line.length)
+                  },
+                  message: 'Multi-document YAML detected. Consider using list format (- id: ...) for better compatibility and clearer semantics.',
+                  source: 'trigger-best-practices',
+                  tags: [1] // DiagnosticTag.Unnecessary would be [1] - marks as hint
+              });
+          }
           break; // Only show once per file
       }
       
@@ -94,6 +108,30 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
           }
           
           items.forEach((item, index) => {
+               // Check for missing 'id' field
+               if (item && typeof item === 'object' && !item.id) {
+                   let fullPathParts = ['id'];
+                   
+                   if (isWrapper) {
+                       fullPathParts.unshift(String(index));
+                       fullPathParts.unshift('rules');
+                   } else if (isArray) {
+                       fullPathParts.unshift(String(index));
+                   }
+                   
+                   const range = findRangeForPath(doc.contents, fullPathParts.slice(0, -1), textDocument);
+                   const line = range.start.line;
+                   
+                   if (!isDiagnosticSuppressed(line, directives, 'trigger-validator')) {
+                       diagnostics.push({
+                           severity: DiagnosticSeverity.Error,
+                           range: range,
+                           message: 'Rule is missing required field: id. Every rule must have a unique identifier.',
+                           source: 'trigger-validator'
+                       });
+                   }
+               }
+               
                if (item && typeof item === 'object' && item.actions && !item.do) {
                    item.do = item.actions;
                }
@@ -111,13 +149,16 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
                        }
                        
                        const range = findRangeForPath(doc.contents, fullPathParts, textDocument);
+                       const line = range.start.line;
                        
-                       diagnostics.push({
-                           severity: DiagnosticSeverity.Error,
-                           range: range,
-                           message: issue.message + (issue.suggestion ? ` (Suggestion: ${issue.suggestion})` : ''),
-                           source: 'trigger-validator'
-                       });
+                       if (!isDiagnosticSuppressed(line, directives, 'trigger-validator')) {
+                           diagnostics.push({
+                               severity: DiagnosticSeverity.Error,
+                               range: range,
+                               message: issue.message + (issue.suggestion ? ` (Suggestion: ${issue.suggestion})` : ''),
+                               source: 'trigger-validator'
+                           });
+                       }
                    }
                }
           });

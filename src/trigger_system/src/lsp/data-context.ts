@@ -1,0 +1,175 @@
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { parseDocument } from 'yaml';
+
+/**
+ * DataContext manages test data loaded from JSON/YAML files
+ * for autocompletion and hover hints
+ */
+export class DataContext {
+    private data: Record<string, any> = {};
+    private schema: Record<string, string> = {}; // field -> type mapping
+
+    /**
+     * Load data from a JSON or YAML file
+     */
+    loadFromFile(filePath: string): void {
+        try {
+            const content = readFileSync(filePath, 'utf-8');
+            
+            if (filePath.endsWith('.json')) {
+                this.data = JSON.parse(content);
+            } else if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
+                const doc = parseDocument(content);
+                this.data = doc.toJS() || {};
+            }
+            
+            // Build schema
+            this.buildSchema(this.data);
+        } catch (error) {
+            console.error(`Failed to load data context from ${filePath}:`, error);
+        }
+    }
+
+    /**
+     * Load data from object
+     */
+    loadFromObject(data: Record<string, any>): void {
+        this.data = data;
+        this.buildSchema(this.data);
+    }
+
+    /**
+     * Get value at a path (e.g., "data.username")
+     */
+    getValue(path: string): any {
+        const parts = path.split('.');
+        let current = this.data;
+        
+        for (const part of parts) {
+            if (current && typeof current === 'object' && part in current) {
+                current = current[part];
+            } else {
+                return undefined;
+            }
+        }
+        
+        return current;
+    }
+
+    /**
+     * Get all fields at a given path prefix
+     */
+    getFields(prefix: string = ''): Array<{ name: string; type: string; value?: any }> {
+        if (!prefix || prefix === 'data') {
+            return Object.keys(this.data).map(key => ({
+                name: key,
+                type: this.getTypeOf(this.data[key]),
+                value: this.data[key]
+            }));
+        }
+
+        // Navigate to the prefix
+        const value = this.getValue(prefix.replace(/^data\./, ''));
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            return Object.keys(value).map(key => ({
+                name: key,
+                type: this.getTypeOf(value[key]),
+                value: value[key]
+            }));
+        }
+
+        return [];
+    }
+
+    /**
+     * Check if a path exists in the data
+     */
+    hasPath(path: string): boolean {
+        return this.getValue(path) !== undefined;
+    }
+
+    /**
+     * Get type of a value
+     */
+    private getTypeOf(value: any): string {
+        if (value === null) return 'null';
+        if (Array.isArray(value)) return 'array';
+        return typeof value;
+    }
+
+    /**
+     * Build schema from data
+     */
+    private buildSchema(obj: any, prefix: string = ''): void {
+        if (!obj || typeof obj !== 'object') return;
+
+        for (const key in obj) {
+            const path = prefix ? `${prefix}.${key}` : key;
+            const value = obj[key];
+            
+            this.schema[path] = this.getTypeOf(value);
+            
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                this.buildSchema(value, path);
+            }
+        }
+    }
+
+    /**
+     * Get formatted value for display
+     */
+    getFormattedValue(value: any): string {
+        if (value === null) return 'null';
+        if (value === undefined) return 'undefined';
+        if (typeof value === 'string') return `"${value}"`;
+        if (typeof value === 'object') return JSON.stringify(value, null, 2);
+        return String(value);
+    }
+
+    /**
+     * Clear all loaded data
+     */
+    clear(): void {
+        this.data = {};
+        this.schema = {};
+    }
+}
+
+/**
+ * Global data context instance
+ */
+export const globalDataContext = new DataContext();
+
+/**
+ * Try to find and load data.json from the workspace
+ */
+export function autoLoadDataContext(documentUri: string): void {
+    try {
+        // Extract file path from URI
+        const filePath = documentUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
+        const dir = dirname(filePath);
+        
+        // Try to find data.json or data.yaml in the same directory or parent directories
+        const searchPaths = [
+            join(dir, 'data.json'),
+            join(dir, 'data.yaml'),
+            join(dir, '..', 'data.json'),
+            join(dir, '..', 'data.yaml'),
+            join(dir, '..', '..', 'data.json'),
+            join(dir, '..', '..', 'data.yaml'),
+        ];
+
+        for (const searchPath of searchPaths) {
+            try {
+                globalDataContext.loadFromFile(searchPath);
+                console.log(`Loaded data context from: ${searchPath}`);
+                return;
+            } catch {
+                // Continue searching
+            }
+        }
+    } catch (error) {
+        console.error('Error auto-loading data context:', error);
+    }
+}

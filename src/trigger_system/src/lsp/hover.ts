@@ -1,6 +1,7 @@
 import type { Hover, MarkupContent, Position } from 'vscode-languageserver/node';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDocument, isMap, isScalar, type Node, type Pair } from 'yaml';
+import { globalDataContext, autoLoadDataContext } from './data-context';
 
 /**
  * Field documentation with descriptions and allowed values
@@ -223,11 +224,22 @@ const ACTION_FIELD_DOCS: Record<string, { description: string; values?: string }
  * Get hover information for a position in the document
  */
 export function getHover(document: TextDocument, position: Position): Hover | null {
+    // Auto-load data context
+    autoLoadDataContext(document.uri);
+    
     const text = document.getText();
     const offset = document.offsetAt(position);
     const doc = parseDocument(text);
 
     if (!doc.contents) return null;
+
+    // Check if we're hovering over a template variable
+    const lines = text.split('\n');
+    const line = lines[position.line] || '';
+    const templateHover = checkTemplateVariableHover(line, position.character);
+    if (templateHover) {
+        return templateHover;
+    }
 
     // Find the node at the cursor position
     const path = findPathAtOffset(doc.contents, offset);
@@ -276,6 +288,66 @@ export function getHover(document: TextDocument, position: Position): Hover | nu
         }
     }
 
+    return null;
+}
+
+/**
+ * Check if hovering over a template variable and return hover info
+ */
+function checkTemplateVariableHover(line: string, character: number): Hover | null {
+    const regex = /\$\{([^}]+)\}/g;
+    let match;
+    
+    while ((match = regex.exec(line)) !== null) {
+        const start = match.index;
+        const end = match.index + match[0].length;
+        
+        // Check if cursor is inside this template
+        if (character >= start && character <= end) {
+            const variablePath = match[1]!.trim();
+            
+            // Try to get value from data context
+            const value = globalDataContext.getValue(variablePath);
+            
+            if (value !== undefined) {
+                const formattedValue = globalDataContext.getFormattedValue(value);
+                const valueType = typeof value === 'object' && value !== null
+                    ? (Array.isArray(value) ? 'array' : 'object')
+                    : typeof value;
+                
+                const markdown: MarkupContent = {
+                    kind: 'markdown',
+                    value: [
+                        `**Template Variable: \`\${${variablePath}}\`**`,
+                        '',
+                        `**Type:** \`${valueType}\``,
+                        '',
+                        '**Test Value:**',
+                        '```json',
+                        formattedValue,
+                        '```'
+                    ].join('\n')
+                };
+                
+                return { contents: markdown };
+            } else {
+                // Variable not found in data context
+                const markdown: MarkupContent = {
+                    kind: 'markdown',
+                    value: [
+                        `**Template Variable: \`\${${variablePath}}\`**`,
+                        '',
+                        '_No test data available for this variable._',
+                        '',
+                        'Add a `data.json` or `data.yaml` file in your workspace to provide test values.'
+                    ].join('\n')
+                };
+                
+                return { contents: markdown };
+            }
+        }
+    }
+    
     return null;
 }
 
