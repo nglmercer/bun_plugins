@@ -9,7 +9,11 @@ import type {
   CompletionItem,
   TextDocumentPositionParams,
   InitializeParams,
-  InitializeResult
+  InitializeResult,
+  DefinitionParams,
+  Definition,
+  Location,
+  Range
 } from 'vscode-languageserver/node';
 import {
   TextDocument
@@ -18,6 +22,9 @@ import { getDiagnosticsForText } from './diagnostics';
 import { getCompletionItems } from './completions';
 import { semanticTokensLegend, getSemanticTokens } from './semantic_tokens';
 import { getHover } from './hover';
+import { getImportDirectives } from './directives';
+import { existsSync } from 'fs';
+import { join, dirname } from 'path';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -49,9 +56,10 @@ connection.onInitialize((params: InitializeParams) => {
       // Tell the client that this server supports code completion.
       completionProvider: {
         resolveProvider: true,
-        triggerCharacters: [':', ' ', '-', '$', '{', '.', '[']
+        triggerCharacters: [':', ' ', '-', '$', '{', '.', '[', '@']
       },
       hoverProvider: true,
+      definitionProvider: true, // Enable Go to Definition
       semanticTokensProvider: {
         legend: semanticTokensLegend,
         full: true
@@ -145,6 +153,118 @@ connection.onHover((params) => {
         return null;
     }
     return getHover(document, params.position);
+});
+
+// Provide Go to Definition for import paths
+connection.onDefinition((params: DefinitionParams): Definition | null => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+        return null;
+    }
+
+    const text = document.getText();
+    const position = params.position;
+    const offset = document.offsetAt(position);
+    
+    // Find the line at the current position
+    const lines = text.split('\n');
+    let currentOffset = 0;
+    let currentLine = 0;
+    let lineStartOffset = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const lineText = lines[i];
+        if (!lineText) continue;
+        const lineLength = lineText.length + 1; // +1 for newline
+        if (currentOffset + lineLength > offset) {
+            currentLine = i;
+            lineStartOffset = currentOffset;
+            break;
+        }
+        currentOffset += lineLength;
+    }
+    
+    const line = lines[currentLine] || '';
+    const characterInLine = offset - lineStartOffset;
+    
+    // Check if we're in an import directive
+    const importMatch = line.match(/#\s*@import\s+\w+\s+from\s+['"]([^'"]+)['"]/);
+    if (!importMatch || !importMatch[1]) {
+        return null;
+    }
+    
+    const importPath = importMatch[1];
+    const pathStart = line.indexOf(importPath);
+    const pathEnd = pathStart + importPath.length;
+    
+    // Check if cursor is within the import path
+    if (characterInLine < pathStart || characterInLine > pathEnd) {
+        return null;
+    }
+    
+    // Resolve the path
+    try {
+        let documentDir: string;
+        
+        if (document.uri === 'file://test' || document.uri === 'file:///test') {
+            // For test documents, use the directory where test files are located
+            documentDir = join(process.cwd(), 'tests', 'rules', 'examples');
+        } else {
+            // Decode URI components and resolve relative paths
+            const decodedUri = decodeURIComponent(document.uri);
+            
+            // Handle Windows file URIs properly
+            let documentPath: string;
+            if (decodedUri.startsWith('file:///')) {
+                // Remove file:/// prefix
+                documentPath = decodedUri.substring(8);
+                
+                // Handle Windows drive letters (C:, D:, etc.)
+                if (documentPath.match(/^[A-Za-z]:/)) {
+                    // Already has drive letter, just replace forward slashes
+                    documentPath = documentPath.replace(/\//g, '\\');
+                } else if (documentPath.match(/^\/[A-Za-z]:/)) {
+                    // Has leading slash before drive letter, remove it
+                    documentPath = documentPath.substring(1).replace(/\//g, '\\');
+                } else {
+                    // Unix-style path, keep as is
+                    documentPath = documentPath.replace(/\//g, '/');
+                }
+            } else {
+                // Fallback for non-file URIs
+                documentPath = decodedUri.replace('file:///', '');
+            }
+            
+            documentDir = dirname(documentPath);
+        }
+        
+        const resolvedPath = join(documentDir, importPath);
+        
+        // Check if file exists
+        if (!existsSync(resolvedPath)) {
+            return null;
+        }
+        
+        // Convert back to file URI
+        let targetUri: string;
+        if (process.platform === 'win32') {
+            targetUri = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+        } else {
+            targetUri = `file://${resolvedPath}`;
+        }
+        
+        // Return the location
+        return {
+            uri: targetUri,
+            range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 }
+            }
+        };
+    } catch (error) {
+        connection.console.log(`Error resolving import path: ${error}`);
+        return null;
+    }
 });
 
 documents.listen(connection);

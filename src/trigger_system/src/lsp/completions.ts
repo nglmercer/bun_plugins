@@ -590,61 +590,75 @@ return allDirectives.filter(item =>
 }
 
 /**
-* Get all available directive completions
-*/
+ * Get all available directive completions with enhanced categorization and colors
+ */
 function getAllDirectiveCompletions(): CompletionItem[] {
 const directives: CompletionItem[] = [
-    {
-        label: 'disable-lint',
-        kind: CompletionItemKind.Keyword,
-        detail: 'Disable all linting for subsequent lines',
-        insertText: 'disable-lint',
-        documentation: 'Disables all linting and validation for the rest of the document or until @enable-lint is encountered'
-    },
-    {
-        label: 'enable-lint',
-        kind: CompletionItemKind.Keyword,
-        detail: 'Enable all linting (default state)',
-        insertText: 'enable-lint',
-        documentation: 'Enables linting and validation (this is the default state)'
-    },
-    {
-        label: 'disable-next-line',
-        kind: CompletionItemKind.Keyword,
-        detail: 'Disable lint for the next line only',
-        insertText: 'disable-next-line',
-        documentation: 'Disables linting and validation for the next line only'
-    },
-    {
-        label: 'disable-line',
-        kind: CompletionItemKind.Keyword,
-        detail: 'Disable lint for current line',
-        insertText: 'disable-line',
-        documentation: 'Disables linting and validation for the current line'
-    },
-    {
-        label: 'disable-rule',
-        kind: CompletionItemKind.Keyword,
-        detail: 'Disable specific rule(s)',
-        insertText: 'disable-rule ${1:rule-name}',
-        insertTextFormat: InsertTextFormat.Snippet,
-        documentation: 'Disables specific validation rules. Example: @disable-rule missing-id, invalid-operator'
-    },
-    {
-        label: 'enable-rule',
-        kind: CompletionItemKind.Keyword,
-        detail: 'Enable specific rule(s)',
-        insertText: 'enable-rule ${1:rule-name}',
-        insertTextFormat: InsertTextFormat.Snippet,
-        documentation: 'Enables specific validation rules that were previously disabled'
-    },
+    // Import directives (Macro category - distinctive color)
     {
         label: 'import',
-        kind: CompletionItemKind.Keyword,
+        kind: CompletionItemKind.Function, // Function type for imports
         detail: 'Import data from JSON/YAML file',
         insertText: 'import ${1:alias} from ${2:./path/to/file.json}',
         insertTextFormat: InsertTextFormat.Snippet,
-        documentation: 'Imports data from a JSON or YAML file for use in autocompletion and validation. Example: @import data from ./data.json'
+        documentation: 'Imports data from a JSON or YAML file for use in autocompletion and validation. Example: @import data from ./data.json',
+        data: { category: 'import', color: 'macro' }
+    },
+    
+    // Global lint control (Namespace category)
+    {
+        label: 'disable-lint',
+        kind: CompletionItemKind.Module, // Module type for global controls
+        detail: 'Disable all linting for subsequent lines',
+        insertText: 'disable-lint',
+        documentation: 'Disables all linting and validation for the rest of the document or until @enable-lint is encountered',
+        data: { category: 'global-control', color: 'namespace' }
+    },
+    {
+        label: 'enable-lint',
+        kind: CompletionItemKind.Module, // Module type for global controls
+        detail: 'Enable all linting (default state)',
+        insertText: 'enable-lint',
+        documentation: 'Enables linting and validation (this is the default state)',
+        data: { category: 'global-control', color: 'namespace' }
+    },
+    
+    // Line-specific control (EnumMember category)
+    {
+        label: 'disable-next-line',
+        kind: CompletionItemKind.EnumMember, // EnumMember for line-specific
+        detail: 'Disable lint for the next line only',
+        insertText: 'disable-next-line',
+        documentation: 'Disables linting and validation for the next line only',
+        data: { category: 'line-control', color: 'enumMember' }
+    },
+    {
+        label: 'disable-line',
+        kind: CompletionItemKind.EnumMember, // EnumMember for line-specific
+        detail: 'Disable lint for current line',
+        insertText: 'disable-line',
+        documentation: 'Disables linting and validation for the current line',
+        data: { category: 'line-control', color: 'enumMember' }
+    },
+    
+    // Rule-specific control (Type category)
+    {
+        label: 'disable-rule',
+        kind: CompletionItemKind.TypeParameter, // TypeParameter for rule-specific
+        detail: 'Disable specific rule(s)',
+        insertText: 'disable-rule ${1:rule-name}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        documentation: 'Disables specific validation rules. Example: @disable-rule missing-id, invalid-operator',
+        data: { category: 'rule-control', color: 'type' }
+    },
+    {
+        label: 'enable-rule',
+        kind: CompletionItemKind.TypeParameter, // TypeParameter for rule-specific
+        detail: 'Enable specific rule(s)',
+        insertText: 'enable-rule ${1:rule-name}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        documentation: 'Enables specific validation rules that were previously disabled',
+        data: { category: 'rule-control', color: 'type' }
     }
 ];
 

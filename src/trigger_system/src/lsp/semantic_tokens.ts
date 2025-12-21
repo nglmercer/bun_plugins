@@ -17,7 +17,11 @@ export const semanticTokensLegend: SemanticTokensLegend = {
         'operator', // 5
         'variable',  // 6
         'parameter', // 7
-        'comment'   // 8
+        'comment',   // 8
+        'type',      // 9 - for directive types
+        'macro',     // 10 - for import directives
+        'namespace', // 11 - for lint control directives
+        'enumMember' // 12 - for rule control directives
     ],
     tokenModifiers: [
         'declaration',
@@ -34,7 +38,11 @@ const TOKEN_TYPES = {
     operator: 5,
     variable: 6,
     parameter: 7,
-    comment: 8
+    comment: 8,
+    type: 9,
+    macro: 10,
+    namespace: 11,
+    enumMember: 12
 };
 
 export function getSemanticTokens(text: string): number[] {
@@ -83,20 +91,24 @@ function processCommentsForDirectives(text: string, builder: SemanticTokensBuild
             
             const startPos = lineCounter.linePos(charOffset);
             
-            // Determine token type based on directive
+            // Determine token type based on directive with specific colors for each type
             let tokenType = TOKEN_TYPES.keyword;
             
             switch (directiveName) {
                 case 'import':
-                    tokenType = TOKEN_TYPES.function; // Import is like a function
+                    tokenType = TOKEN_TYPES.macro; // Import directives as macros (distinctive color)
                     break;
                 case 'disable-lint':
                 case 'enable-lint':
+                    tokenType = TOKEN_TYPES.namespace; // Global lint control as namespace
+                    break;
                 case 'disable-next-line':
                 case 'disable-line':
+                    tokenType = TOKEN_TYPES.enumMember; // Line-specific control as enum member
+                    break;
                 case 'disable-rule':
                 case 'enable-rule':
-                    tokenType = TOKEN_TYPES.operator; // Lint directives are operators
+                    tokenType = TOKEN_TYPES.type; // Rule-specific control as type
                     break;
                 default:
                     tokenType = TOKEN_TYPES.keyword;

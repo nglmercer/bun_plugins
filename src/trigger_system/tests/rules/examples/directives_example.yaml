@@ -1,5 +1,4 @@
 # Example file demonstrating LSP directive features
-
 # @disable-next-line
 - on: SOME_EVENT
   # Missing id - lint suppressed by directive above
