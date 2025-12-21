@@ -46,6 +46,9 @@ export function getSemanticTokens(text: string): number[] {
         visit(doc.contents, builder, lineCounter);
     }
 
+    // Process comments for directives
+    processCommentsForDirectives(text, builder, lineCounter);
+
     return builder.build().data;
 }
 
@@ -82,6 +85,7 @@ function visitPair(pair: Pair, builder: SemanticTokensBuilder, lineCounter: Line
         } else if (['operator', 'op'].includes(keyText)) {
              type = TOKEN_TYPES.operator;
         }
+        
 
         const startPos = lineCounter.linePos(key.range[0]);
         // linePos returns 1-based line and col

@@ -9,7 +9,9 @@ import {
 import { parseDocument, isMap, isSeq, YAMLMap, YAMLSeq } from 'yaml';
 import type { Node, Pair, Scalar } from 'yaml';
 import { TriggerValidator } from '../domain/validator';
-import { parseDirectives, isDiagnosticSuppressed, processRangeDirectives } from './directives';
+import { parseDirectives, isDiagnosticSuppressed, processRangeDirectives, getImportDirectives } from './directives';
+import { existsSync } from 'fs';
+import { join, dirname, extname } from 'path';
 
 /**
  * Validates the text content of a document and returns diagnostics.
@@ -85,6 +87,17 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
       // Track that we've seen content
       if (line.length > 0 && !line.startsWith('#')) {
           foundFirstDocument = true;
+      }
+  }
+
+
+  // 1.6 Validate import directives
+  const importDiagnostics = validateImportDirectives(textDocument, text);
+  for (const diagnostic of importDiagnostics) {
+      // Check if diagnostic is suppressed
+      const line = diagnostic.range.start.line;
+      if (!isDiagnosticSuppressed(line, directives, 'trigger-import-validator')) {
+          diagnostics.push(diagnostic);
       }
   }
 
@@ -281,4 +294,95 @@ function findRangeForPath(
 
 function isScalar(node: any): node is Scalar {
     return node && node.type !== undefined && (node.type === 'SCALAR' || node.type === 'QUOTE_DOUBLE' || node.type === 'QUOTE_SINGLE' || typeof node.value !== 'undefined');
+}
+
+/**
+ * Validate import directives and return diagnostics for invalid imports
+ */
+function validateImportDirectives(document: TextDocument, text: string): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    const directives = parseDirectives(document);
+    
+    for (const directive of directives) {
+        if (directive.type === 'import' && directive.importPath) {
+            // Resolve the path relative to the document
+            const decodedUri = decodeURIComponent(document.uri);
+            const documentPath = decodedUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
+            const documentDir = dirname(documentPath);
+            const resolvedPath = join(documentDir, directive.importPath);
+            
+            // Debug logging
+            console.log(`[LSP] Import validation debug:`);
+            console.log(`[LSP]   Document URI: ${document.uri}`);
+            console.log(`[LSP]   Decoded URI: ${decodedUri}`);
+            console.log(`[LSP]   Document path: ${documentPath}`);
+            console.log(`[LSP]   Document dir: ${documentDir}`);
+            console.log(`[LSP]   Import path: ${directive.importPath}`);
+            console.log(`[LSP]   Resolved path: ${resolvedPath}`);
+            console.log(`[LSP]   File exists: ${existsSync(resolvedPath)}`);
+            
+            // Check if file exists
+            if (!existsSync(resolvedPath)) {
+                // Find the line and character position of the import path in the directive
+                const lines = text.split('\n');
+                const line = lines[directive.line] || '';
+                const importPathMatch = line.match(new RegExp(`['"]${directive.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`));
+                
+                let startChar = line.indexOf(directive.importPath);
+                let endChar = startChar + directive.importPath.length;
+                
+                if (importPathMatch) {
+                    startChar = importPathMatch.index || startChar;
+                    endChar = startChar + importPathMatch[0].length;
+                }
+                
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: { line: directive.line, character: startChar },
+                        end: { line: directive.line, character: endChar }
+                    },
+                    message: `Import file not found: ${directive.importPath}`,
+                    source: 'trigger-import-validator',
+                    data: {
+                        suggestion: `Check that the file exists at the specified path: ${resolvedPath}`
+                    }
+                });
+                continue;
+            }
+            
+            // Check file extension
+            const ext = extname(resolvedPath).toLowerCase();
+            const validExtensions = ['.json', '.yaml', '.yml'];
+            
+            if (!validExtensions.includes(ext)) {
+                const lines = text.split('\n');
+                const line = lines[directive.line] || '';
+                const importPathMatch = line.match(new RegExp(`['"]${directive.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`));
+                
+                let startChar = line.indexOf(directive.importPath);
+                let endChar = startChar + directive.importPath.length;
+                
+                if (importPathMatch) {
+                    startChar = importPathMatch.index || startChar;
+                    endChar = startChar + importPathMatch[0].length;
+                }
+                
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: { line: directive.line, character: startChar },
+                        end: { line: directive.line, character: endChar }
+                    },
+                    message: `Invalid file type for import: ${ext}. Only JSON and YAML files are supported.`,
+                    source: 'trigger-import-validator',
+                    data: {
+                        suggestion: 'Use a .json, .yaml, or .yml file for data imports.'
+                    }
+                });
+            }
+        }
+    }
+    
+    return diagnostics;
 }

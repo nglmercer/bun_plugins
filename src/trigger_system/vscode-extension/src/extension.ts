@@ -10,12 +10,16 @@ import {
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
+  console.log('Trigger System LSP Client: Activating extension...');
+  
   // The server is implemented in node, but we use 'bun' to run the TS directly
   const serverCommand = 'bun';
   
-  // Point to the server.ts file in the parent directory    
+  // Point to the server.ts file in the parent directory
   // context.extensionPath is the path to this vscode-extension folder
   const serverPath = path.join(context.extensionPath, '../src/lsp/server.ts');
+  
+  console.log(`Trigger System LSP Client: Server path: ${serverPath}`);
   
   const serverArgs = ['run', serverPath, '--stdio'];
 
@@ -44,8 +48,12 @@ export function activate(context: ExtensionContext) {
     clientOptions
   );
 
+  console.log('Trigger System LSP Client: Starting language client...');
+  
   // Start the client. This will also launch the server
   client.start();
+  
+  console.log('Trigger System LSP Client: Extension activated successfully');
 }
 
 export function deactivate(): Thenable<void> | undefined {

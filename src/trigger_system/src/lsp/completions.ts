@@ -1,16 +1,18 @@
 
-import { 
+import {
     CompletionItemKind,
     InsertTextFormat
 } from 'vscode-languageserver/node';
-import type { 
-    CompletionItem, 
+import type {
+    CompletionItem,
     Position
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDocument, isMap, isSeq, isPair, isScalar, type Node, Scalar, YAMLMap, Pair, YAMLSeq } from 'yaml';
-import { globalDataContext, autoLoadDataContext, loadDataFromImports } from './data-context';
-import { getImportDirectives } from './directives';
+import { globalDataContext, loadDataFromImports } from './data-context';
+import { getImportDirectives, type DirectiveType } from './directives';
+import { existsSync } from 'fs';
+import { join, dirname, extname } from 'path';
 
 // --- CONSTANTS & DEFINITIONS ---
 
@@ -128,12 +130,6 @@ const PARAM_KEYS: Record<string, CompletionItem[]> = {
     ]
 };
 
-const DYNAMIC_VALUES: CompletionItem[] = [
-    { label: '${data.}', kind: CompletionItemKind.Snippet, insertText: '${data.$1}', insertTextFormat: InsertTextFormat.Snippet, detail: 'Event data' },
-    { label: '${state.}', kind: CompletionItemKind.Snippet, insertText: '${state.$1}', insertTextFormat: InsertTextFormat.Snippet, detail: 'Global state' },
-    { label: '${globals.}', kind: CompletionItemKind.Snippet, insertText: '${globals.$1}', insertTextFormat: InsertTextFormat.Snippet, detail: 'Environment variables' },
-    { label: '${timestamp}', kind: CompletionItemKind.Variable, detail: 'Current time ms' },
-];
 
 const SNIPPETS: CompletionItem[] = [
     { 
@@ -162,13 +158,24 @@ const SNIPPETS: CompletionItem[] = [
 // --- MAIN LOGIC ---
 
 export function getCompletionItems(document: TextDocument, position: Position): CompletionItem[] {
-    // First, try to load data from import directives
+    console.log(`[LSP] getCompletionItems called for document: ${document.uri}`);
+    console.log(`[LSP] Position: line ${position.line}, character ${position.character}`);
+    
+    // Load data from import directives only (declarative approach)
     const imports = getImportDirectives(document, document.uri);
+    console.log(`[LSP] Found ${imports.length} import directives`);
+    
     if (imports.length > 0) {
+        console.log(`[LSP] Loading data from imports:`, imports);
         loadDataFromImports(imports);
+        // Verificar datos cargados
+        const allData = globalDataContext.getValue('');
+        console.log(`[LSP] Data loaded in context:`, allData);
+        console.log(`[LSP] Available top-level keys:`, allData ? Object.keys(allData) : 'none');
     } else {
-        // Fallback to auto-loading data context from workspace
-        autoLoadDataContext(document.uri);
+        console.log(`[LSP] No imports found, clearing data context`);
+        // Clear data context when no imports are defined
+        globalDataContext.clear();
     }
     
     const text = document.getText();
@@ -176,6 +183,17 @@ export function getCompletionItems(document: TextDocument, position: Position): 
     const lines = text.split('\n');
     const line = lines[position.line] || '';
     const offset = document.offsetAt(position);
+    
+    console.log(`[LSP] Current line: "${line}"`);
+    console.log(`[LSP] Offset: ${offset}`);
+    
+    // Check if we're in a comment line (for directive completion)
+    if (line.trim().startsWith('#')) {
+        const directiveCompletions = getDirectiveCompletions(line, position.character, document);
+        if (directiveCompletions.length > 0) {
+            return directiveCompletions;
+        }
+    }
     
     // Check if we're inside a template variable ${...}
     const templateMatch = checkTemplateVariable(line, position.character);
@@ -193,7 +211,14 @@ export function getCompletionItems(document: TextDocument, position: Position): 
 
     // 2. We are in a KEY position or start of line
     const path = findPathAtOffset(doc.contents, offset) || [];
-    return getKeyCompletions(path, line);
+    const completions = getKeyCompletions(path, line);
+    
+    console.log(`[LSP] Returning ${completions.length} completion items`);
+    if (completions.length > 0) {
+        console.log(`[LSP] First few items:`, completions.slice(0, 3).map(c => c.label));
+    }
+    
+    return completions;
 }
 
 /**
@@ -243,39 +268,83 @@ function checkTemplateVariable(line: string, character: number): { prefix: strin
  */
 function getTemplateVariableCompletions(context: { prefix: string; inTemplate: boolean }): CompletionItem[] {
     const prefix = context.prefix.trim();
+    console.log(`[LSP] Template variable completion - prefix: "${prefix}"`);
     
-    // ${data.
-    if (prefix === 'data.' || prefix === '${data.') {
-        const fields = globalDataContext.getFields('data');
-        return fields.map(field => ({
-            label: field.name,
-            kind: CompletionItemKind.Field,
-            detail: `${field.type}${field.value !== undefined ? ` = ${globalDataContext.getFormattedValue(field.value)}` : ''}`,
-            documentation: field.value !== undefined 
-                ? `Test value: ${globalDataContext.getFormattedValue(field.value)}`
-                : undefined
-        }));
+    // Handle different variable types based on what's loaded in globalDataContext
+    const allData = globalDataContext.getValue('');
+    console.log(`[LSP] Current data context:`, allData);
+    
+    if (!allData || typeof allData !== 'object') {
+        console.log(`[LSP] No data available in context`);
+        return [{
+            label: 'data',
+            kind: CompletionItemKind.Variable,
+            detail: 'No imported data available',
+            documentation: 'Add a data import directive like: # @import data from ./data.json'
+        }];
     }
     
-    // ${data.someObject.
-    if (prefix.startsWith('data.') || prefix.startsWith('${data.')) {
-        const cleanPrefix = prefix.replace('${', '').replace(/\.$/, '');
-        const fields = globalDataContext.getFields(cleanPrefix);
-        
-        if (fields.length > 0) {
-            return fields.map(field => ({
+    // Check if we're at the root level (after ${ or ${data. etc)
+    const cleanPrefix = prefix.replace('${', '').replace(/\.$/, '');
+    console.log(`[LSP] Clean prefix: "${cleanPrefix}"`);
+    
+    // If we're at root level, suggest all available top-level variables
+    if (!cleanPrefix || cleanPrefix === '') {
+        const suggestions = Object.keys(allData).map(key => {
+            const value = allData[key];
+            const valueType = Array.isArray(value) ? 'array' : typeof value;
+            const sampleValue = valueType === 'object' ? JSON.stringify(value).substring(0, 50) + '...' : String(value);
+            
+            return {
+                label: key,
+                kind: CompletionItemKind.Variable,
+                detail: `${valueType} (imported data)`,
+                documentation: `Sample value: ${sampleValue}`,
+                insertText: key
+            };
+        });
+        console.log(`[LSP] Root level suggestions:`, suggestions.map(s => s.label));
+        return suggestions;
+    }
+    
+    // If we have a specific prefix, get fields from that path
+    const fields = globalDataContext.getFields(cleanPrefix);
+    console.log(`[LSP] Fields for prefix "${cleanPrefix}":`, fields.map(f => f.name));
+    
+    if (fields.length > 0) {
+        const suggestions = fields.map(field => {
+            const sampleValue = field.type === 'object' ?
+                JSON.stringify(field.value).substring(0, 50) + '...' :
+                globalDataContext.getFormattedValue(field.value);
+            
+            return {
                 label: field.name,
-                kind: CompletionItemKind.Field,
-                detail: `${field.type}${field.value !== undefined ? ` = ${globalDataContext.getFormattedValue(field.value)}` : ''}`,
-                documentation: field.value !== undefined 
-                    ? `Test value: ${globalDataContext.getFormattedValue(field.value)}`
-                    : undefined
-            }));
-        }
+                kind: field.type === 'object' ? CompletionItemKind.Module : CompletionItemKind.Field,
+                detail: `${field.type} (imported data)`,
+                documentation: `Sample value: ${sampleValue}`,
+                insertText: field.name
+            };
+        });
+        console.log(`[LSP] Field suggestions:`, suggestions.map(s => s.label));
+        return suggestions;
     }
     
-    // Default template suggestions
-    return DYNAMIC_VALUES;
+    // If no fields found, suggest similar paths or provide helpful message
+    console.log(`[LSP] No suggestions found for prefix "${prefix}"`);
+    
+    // Check if we have any data at all to provide suggestions
+    const allKeys = Object.keys(allData);
+    if (allKeys.length > 0) {
+        return [{
+            label: cleanPrefix,
+            kind: CompletionItemKind.Text,
+            detail: 'Path not found in imported data',
+            documentation: `Available top-level keys: ${allKeys.join(', ')}`,
+            insertText: cleanPrefix
+        }];
+    }
+    
+    return [];
 }
 
 function getValueCompletionsByKey(key: string, path: (Node | Pair)[]): CompletionItem[] {
@@ -295,11 +364,18 @@ function getValueCompletionsByKey(key: string, path: (Node | Pair)[]): Completio
                 { label: 'false', kind: CompletionItemKind.Value }
             ];
         case 'field':
-            return DYNAMIC_VALUES.map(v => ({ ...v, label: v.label.replace('${', '').replace('}', '').replace('.', '') }));
+            // Only suggest imported data fields
+            const fields = globalDataContext.getFields('data');
+            return fields.map(field => ({
+                label: field.name,
+                kind: CompletionItemKind.Field,
+                detail: `${field.type}${field.value !== undefined ? ` = ${globalDataContext.getFormattedValue(field.value)}` : ''}`
+            }));
         case 'value':
             return getValueSpecificToOperator(path);
     }
-    return DYNAMIC_VALUES;
+    // Return empty array instead of DYNAMIC_VALUES
+    return [];
 }
 
 function getKeyCompletions(path: (Node | Pair)[], line: string): CompletionItem[] {
@@ -365,10 +441,10 @@ function findNearestActionMap(path: (Node | Pair)[]): YAMLMap | null {
 function getValueSpecificToOperator(path: (Node | Pair)[]): CompletionItem[] {
     // Look for a map in the path that contains an 'operator' key
     const map = path.slice().reverse().find(n => isMap(n)) as YAMLMap;
-    if (!map) return DYNAMIC_VALUES;
+    if (!map) return [];
 
     const opPair = map.items.find(item => isPair(item) && String((item.key as Scalar).value) === 'operator');
-    if (!opPair || !isScalar(opPair.value)) return DYNAMIC_VALUES;
+    if (!opPair || !isScalar(opPair.value)) return [];
 
     const op = String(opPair.value.value);
     switch (op) {
@@ -381,7 +457,7 @@ function getValueSpecificToOperator(path: (Node | Pair)[]): CompletionItem[] {
             return [{ label: '"regex"', kind: CompletionItemKind.Snippet, insertText: '"^$1$"', insertTextFormat: InsertTextFormat.Snippet }];
     }
 
-    return DYNAMIC_VALUES;
+    return [];
 }
 
 export function findPathAtOffset(node: Node | Pair | null, offset: number, currentPath: (Node | Pair)[] = []): (Node | Pair)[] | null {
@@ -440,9 +516,140 @@ export function findPathAtOffset(node: Node | Pair | null, offset: number, curre
         
         return newPath;
     }
-
-    return newPath;
+return newPath;
 }
 
+/**
+* Get completions for directive comments (lines starting with #)
+*/
+function getDirectiveCompletions(line: string, character: number, document: TextDocument): CompletionItem[] {
+console.log(`[LSP] Checking directive completions for line: "${line}" at character ${character}`);
 
+// Check if we're in a directive context
+const directiveMatch = line.match(/#\s*@?([\w-]*)$/);
+if (!directiveMatch) return [];
 
+const partialDirective = directiveMatch[1] || '';
+console.log(`[LSP] Partial directive: "${partialDirective}"`);
+
+// Check if we're in an import directive and need file path completion
+if (partialDirective.startsWith('import') || line.includes('@import')) {
+    const importMatch = line.match(/@import\s+\w+\s+from\s+['"]?([^'"]*)$/);
+    if (importMatch) {
+        const partialPath = importMatch[1] || '';
+        return getImportFileCompletions(document.uri, partialPath);
+    }
+}
+
+// If we're just starting a directive (after # or @)
+if (partialDirective === '' || line.match(/#\s*$/)) {
+    return getAllDirectiveCompletions();
+}
+
+// If we have a partial directive, filter completions
+const allDirectives = getAllDirectiveCompletions();
+return allDirectives.filter(item =>
+    item.label.toLowerCase().startsWith(partialDirective.toLowerCase())
+);
+}
+
+/**
+* Get all available directive completions
+*/
+function getAllDirectiveCompletions(): CompletionItem[] {
+const directives: CompletionItem[] = [
+    {
+        label: 'disable-lint',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Disable all linting for subsequent lines',
+        insertText: 'disable-lint',
+        documentation: 'Disables all linting and validation for the rest of the document or until @enable-lint is encountered'
+    },
+    {
+        label: 'enable-lint',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Enable all linting (default state)',
+        insertText: 'enable-lint',
+        documentation: 'Enables linting and validation (this is the default state)'
+    },
+    {
+        label: 'disable-next-line',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Disable lint for the next line only',
+        insertText: 'disable-next-line',
+        documentation: 'Disables linting and validation for the next line only'
+    },
+    {
+        label: 'disable-line',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Disable lint for current line',
+        insertText: 'disable-line',
+        documentation: 'Disables linting and validation for the current line'
+    },
+    {
+        label: 'disable-rule',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Disable specific rule(s)',
+        insertText: 'disable-rule ${1:rule-name}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        documentation: 'Disables specific validation rules. Example: @disable-rule missing-id, invalid-operator'
+    },
+    {
+        label: 'enable-rule',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Enable specific rule(s)',
+        insertText: 'enable-rule ${1:rule-name}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        documentation: 'Enables specific validation rules that were previously disabled'
+    },
+    {
+        label: 'import',
+        kind: CompletionItemKind.Keyword,
+        detail: 'Import data from JSON/YAML file',
+        insertText: 'import ${1:alias} from ${2:./path/to/file.json}',
+        insertTextFormat: InsertTextFormat.Snippet,
+        documentation: 'Imports data from a JSON or YAML file for use in autocompletion and validation. Example: @import data from ./data.json'
+    }
+];
+
+return directives;
+}
+
+/**
+* Get file path completions for import directives
+*/
+function getImportFileCompletions(documentPath: string, partialPath: string): CompletionItem[] {
+const completions: CompletionItem[] = [];
+
+try {
+    const decodedUri = decodeURIComponent(documentPath);
+    const documentDir = dirname(decodedUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1'));
+    const currentDir = partialPath.includes('/') ? dirname(join(documentDir, partialPath)) : documentDir;
+    
+    // Get list of JSON and YAML files in the directory
+    const fs = require('fs');
+    if (existsSync(currentDir)) {
+        const files = fs.readdirSync(currentDir);
+        const validExtensions = ['.json', '.yaml', '.yml'];
+        
+        files.forEach((file: string) => {
+            const ext = extname(file).toLowerCase();
+            if (validExtensions.includes(ext)) {
+                const relativePath = './' + (partialPath.includes('/') ?
+                    dirname(partialPath) + '/' + file : file);
+                
+                completions.push({
+                    label: relativePath,
+                    kind: CompletionItemKind.File,
+                    detail: `${ext.toUpperCase()} data file`,
+                    insertText: `"${relativePath}"`
+                });
+            }
+        });
+    }
+} catch (error) {
+    console.log(`[LSP] Error getting file completions:`, error);
+}
+
+return completions;
+}

@@ -30,6 +30,7 @@ let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 
 connection.onInitialize((params: InitializeParams) => {
+  connection.console.log('Trigger System LSP Server initializing...');
   const capabilities = params.capabilities;
 
   hasConfigurationCapability = !!(
@@ -38,6 +39,9 @@ connection.onInitialize((params: InitializeParams) => {
   hasWorkspaceFolderCapability = !!(
     capabilities.workspace && !!capabilities.workspace.workspaceFolders
   );
+
+  connection.console.log(`Configuration capability: ${hasConfigurationCapability}`);
+  connection.console.log(`Workspace folder capability: ${hasWorkspaceFolderCapability}`);
 
   const result: InitializeResult = {
     capabilities: {
@@ -54,6 +58,9 @@ connection.onInitialize((params: InitializeParams) => {
       }
     }
   };
+  
+  connection.console.log(`Server capabilities registered: ${JSON.stringify(result.capabilities, null, 2)}`);
+  
   if (hasWorkspaceFolderCapability) {
     result.capabilities.workspace = {
       workspaceFolders: {
@@ -90,11 +97,20 @@ connection.onDidChangeWatchedFiles(_change => {
 // This handler provides the initial list of the completion items.
 connection.onCompletion(
   (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+    connection.console.log(`Completion requested for document: ${_textDocumentPosition.textDocument.uri}`);
+    connection.console.log(`Position: line ${_textDocumentPosition.position.line}, character ${_textDocumentPosition.position.character}`);
+    
     const document = documents.get(_textDocumentPosition.textDocument.uri);
     if (!document) {
+        connection.console.log('Document not found');
         return [];
     }
-    return getCompletionItems(document, _textDocumentPosition.position);
+    
+    connection.console.log(`Document found, getting completions...`);
+    const completions = getCompletionItems(document, _textDocumentPosition.position);
+    connection.console.log(`Found ${completions.length} completion items`);
+    
+    return completions;
   }
 );
 

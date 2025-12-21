@@ -43,6 +43,10 @@ export class DataContext {
      * Get value at a path (e.g., "data.username")
      */
     getValue(path: string): any {
+        if (!path) {
+            return this.data; // Return all data if path is empty
+        }
+        
         const parts = path.split('.');
         let current = this.data;
         
@@ -153,56 +157,19 @@ export function loadDataFromImports(imports: Array<{ alias: string; path: string
             const dataContext = new DataContext();
             dataContext.loadFromFile(import_.path);
             
-            // Merge the imported data into global context with the specified alias
+            // Get the data using the public getValue method
             const importedData = dataContext.getValue('');
             if (importedData && typeof importedData === 'object') {
-                // If alias is 'data', merge directly to root
-                if (import_.alias === 'data') {
-                    globalDataContext.loadFromObject(importedData);
-                } else {
-                    // Otherwise, nest under the alias
-                    globalDataContext.loadFromObject({
-                        [import_.alias]: importedData
-                    });
-                }
+                // Always nest under the alias, even if alias is 'data'
+                // This ensures consistent behavior: data.username, config.username, etc.
+                globalDataContext.loadFromObject({
+                    [import_.alias]: importedData
+                });
             }
             
             console.log(`Loaded data from import: ${import_.alias} -> ${import_.path}`);
         } catch (error) {
             console.error(`Failed to load import ${import_.alias} from ${import_.path}:`, error);
         }
-    }
-}
-
-/**
- * Try to find and load data.json from the workspace
- */
-export function autoLoadDataContext(documentUri: string): void {
-    try {
-        // Extract file path from URI
-        const filePath = documentUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
-        const dir = dirname(filePath);
-        
-        // Try to find data.json or data.yaml in the same directory or parent directories
-        const searchPaths = [
-            join(dir, 'data.json'),
-            join(dir, 'data.yaml'),
-            join(dir, '..', 'data.json'),
-            join(dir, '..', 'data.yaml'),
-            join(dir, '..', '..', 'data.json'),
-            join(dir, '..', '..', 'data.yaml'),
-        ];
-
-        for (const searchPath of searchPaths) {
-            try {
-                globalDataContext.loadFromFile(searchPath);
-                console.log(`Loaded data context from: ${searchPath}`);
-                return;
-            } catch {
-                // Continue searching
-            }
-        }
-    } catch (error) {
-        console.error('Error auto-loading data context:', error);
     }
 }

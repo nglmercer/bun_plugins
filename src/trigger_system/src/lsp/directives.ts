@@ -228,8 +228,9 @@ export function getImportDirectives(document: TextDocument, documentUri: string)
     
     for (const directive of directives) {
         if (directive.type === 'import' && directive.importAlias && directive.importPath) {
-            // Resolve relative paths based on document location
-            const documentPath = documentUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
+            // Decode URI components and resolve relative paths
+            const decodedUri = decodeURIComponent(documentUri);
+            const documentPath = decodedUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
             const documentDir = dirname(documentPath);
             const resolvedPath = join(documentDir, directive.importPath);
             

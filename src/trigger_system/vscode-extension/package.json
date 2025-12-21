@@ -15,6 +15,14 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "yaml",
+        "aliases": ["YAML", "yaml"],
+        "extensions": [".yaml", ".yml"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Trigger System LSP",
