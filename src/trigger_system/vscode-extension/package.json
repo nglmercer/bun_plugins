@@ -1,8 +1,8 @@
 {
   "name": "trigger-system-lsp-client",
   "displayName": "Trigger System Client",
-  "description": "LSP Client for Trigger System",
-  "version": "0.0.2",
+  "description": "Trigger System VS Code Extension",
+  "version": "0.0.3",
   "publisher": "nglmercer",
   "repository": {
     "type": "git",
@@ -11,6 +11,7 @@
   "engines": {
     "vscode": "^1.75.0"
   },
+  "icon": "logo_256x256.png",
   "categories": [
     "Programming Languages"
   ],

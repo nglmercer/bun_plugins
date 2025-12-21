@@ -2,6 +2,12 @@
 
 Official VS Code extension for the **Agnostic Trigger System**. This extension provides rich language support for YAML-based trigger rules, making it easier to build, debug, and maintain complex event-driven logic.
 
+## 🌟 Overview
+
+The **Trigger System** is a protocol-agnostic, event-driven engine designed to execute dynamic logic in real-time. This extension transforms VS Code into a first-class IDE for writing these rules by providing deep integration with the system's schema and data context.
+
+Whether you are building complex game mechanics, payment workflows, or IoT automation, this extension ensures your rules are syntactically correct and perfectly typed before they ever reach production.
+
 ## Features
 
 ### 🔍 Real-time Validation
