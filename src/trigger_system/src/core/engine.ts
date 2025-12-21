@@ -10,7 +10,7 @@ import type {
   ConditionGroup
 } from "../types";
 import { TriggerUtils } from "../utils/utils";
-import { TriggerLoader } from "../io/loader";
+// import { TriggerLoader } from "../io/loader"; // Removed dependency
 import { ExpressionEngine } from "./expression-engine";
 
 export type EngineActionHandler = (params: any, context: TriggerContext) => Promise<any> | any;
@@ -20,21 +20,17 @@ export class TriggerEngine {
   private actionHandlers: Map<string, EngineActionHandler> = new Map();
   private lastExecution: Map<string, number> = new Map();
 
-  constructor() {}
-
-  /**
-   * Load rules from a directory (YAML files)
-   */
-  async loadRules(dir: string) {
-    const loaded = await TriggerLoader.loadRulesFromDir(dir);
-    // Sort by priority (descending: higher first) - user said "lower number = higher priority" in old code? 
-    // Usually higher number = higher priority in systems, but let's check user intent.
-    // The old code said: "// Prioridad de evaluación (menor número = mayor prioridad)"
-    // The new types I wrote said "Higher number = Higher priority". 
-    // I will stick to my new types doc: Higher number = Higher priority (standard).
-    this.rules = loaded.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-    console.log(`[TriggerSystem] Loaded ${this.rules.length} rules.`);
+  // Rules should be loaded externally and passed here
+  constructor(rules: TriggerRule[] = []) {
+      this.rules = rules;
+      // Sort logic moved to where rules are set
+      this.sortRules();
   }
+
+  private sortRules() {
+     this.rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  }
+
 
   /**
    * Register a handler for a specific action type

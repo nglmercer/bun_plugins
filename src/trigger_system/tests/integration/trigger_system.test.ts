@@ -2,6 +2,7 @@
 import { describe, expect, test, beforeAll } from "bun:test";
 import { TriggerEngine } from "../../src/core/engine";
 import { ActionRegistry } from "../../src/core/action-registry";
+import { TriggerLoader } from "../../src/io/loader.node";
 import * as path from "path";
 import type { TriggerContext } from "../../src/types";
 
@@ -9,7 +10,14 @@ describe("Trigger System Integration", () => {
     let engine: TriggerEngine;
 
     beforeAll(async () => {
-        engine = new TriggerEngine();
+        // Load the sample rules
+        const rulesPath = path.join(import.meta.dir, "../rules");
+        console.log(`[TEST] Loading rules from: ${rulesPath}`);
+        const rules = await TriggerLoader.loadRulesFromDir(rulesPath);
+        console.log(`[TEST] Rules Loaded: ${rules.length}`);
+        
+        // Create engine with loaded rules
+        engine = new TriggerEngine(rules);
         
         // Register Actions
         engine.registerAction("LOG", async (params) => {
@@ -24,13 +32,6 @@ describe("Trigger System Integration", () => {
         engine.registerAction("TEST_CUSTOM", async (params, context) => {
             return { processed: true, data: context.data.value };
         });
-        
-        // Load the sample rules
-        const rulesPath = path.join(import.meta.dir, "../rules");
-        console.log(`[TEST] Loading rules from: ${rulesPath}`);
-        await engine.loadRules(rulesPath);
-        // @ts-ignore
-        console.log(`[TEST] Rules Loaded: ${engine.rules.length}`);
     });
 
     // --- Basic Flow ---
@@ -81,7 +82,7 @@ describe("Trigger System Integration", () => {
         // Let's assume we can access engine.ruleEngine or similiar, or just creating a new instance for this test
         // to avoid polluting the global loaded state.
         
-        const localEngine = new TriggerEngine();
+        const localEngine = new TriggerEngine([]);
         localEngine.registerAction("TEST_CUSTOM", async (p, c) => ({ val: c.data.val }));
         
         // Manually update rules (hacky if method doesn't exist, but TriggerEngine usually has it)

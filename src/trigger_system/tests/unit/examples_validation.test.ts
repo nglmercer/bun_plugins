@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { TriggerValidator } from "../../src/domain/validator";
-import { TriggerLoader } from "../../src/io/loader";
+import { TriggerLoader } from "../../src/io/loader.node";
 import path from "path";
 import fs from "fs";
 

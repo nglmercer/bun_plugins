@@ -2,7 +2,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { RuleEngine } from "../../src/core/rule-engine";
 import { ActionRegistry } from "../../src/core/action-registry";
-import { TriggerLoader } from "../../src/io/loader";
+import { TriggerLoader } from "../../src/io/loader.node";
 import { StateManager } from "../../src/core/state-manager";
 import path from "path";
 

@@ -4,7 +4,7 @@ import { EventEmitter } from "events";
 import { RuleEngine } from "../../src/core/rule-engine";
 import { ActionRegistry } from "../../src/core/action-registry";
 import { StateManager } from "../../src/core/state-manager";
-import { TriggerLoader } from "../../src/io/loader";
+import { TriggerLoader } from "../../src/io/loader.node";
 import path from "path";
 
 // --- Re-using MockPlaylistManager (identical to previous test) ---

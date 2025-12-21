@@ -1,6 +1,6 @@
 
 import { describe, expect, test } from "bun:test";
-import { TriggerLoader } from "../../src/io/loader";
+import { TriggerLoader } from "../../src/io/loader.node";
 import * as path from "path";
 import * as fs from "fs";
 

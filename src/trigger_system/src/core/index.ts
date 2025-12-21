@@ -1,7 +1,7 @@
 export * from "./expression-engine";
 export * from "./event-queue";
 export * from "./persistence";
-export * from "./persistence-file";
+// export * from "./persistence.node"; // Node Only - moved to node.ts entry point
 export * from "./persistence-browser";
 
 

@@ -1,5 +1,5 @@
 
-import { TriggerLoader } from "../io/loader";
+import { TriggerLoader } from "../io/loader.node";
 import { DependencyAnalyzer } from "../core/dependency-graph";
 import { resolve } from "path";
 
