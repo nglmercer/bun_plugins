@@ -2,7 +2,7 @@
   "name": "trigger-system-lsp-client",
   "displayName": "Trigger System Client",
   "description": "LSP Client for Trigger System",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "nglmercer",
   "repository": {
     "type": "git",
@@ -57,5 +57,11 @@
     "@types/vscode": "^1.75.0",
     "@types/node": "^18.0.0",
     "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "yaml": "^2.8.2",
+    "arktype": "^2.1.29"
   }
 }
