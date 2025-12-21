@@ -2,9 +2,7 @@
 
 ## Active
 
-- [ ] **State Persistence**: Implement SQLite adapter.
-- [ ] **Observability**: Implement structured logging with `correlated_id`.
-- [ ] **REPL Tool**: Create a CLI for manual event injection (`bun run trigger-cli`).
+- [x] **Observability**: Implemented `triggerEmitter` for real-time monitoring and logging.
 
 ## Completed
 
@@ -28,3 +26,7 @@
 - [x] **Persistence Interface**: Created `PersistenceAdapter` and `InMemoryPersistence`.
 - [x] **Event Queue**: Created `src/core/event-queue.ts`.
 - [x] **Expression Robustness**: Updated engine to support `||` defaults and handle nulls safely.
+- [x] **Fluent SDK**: Implemented `RuleBuilder`, `ConditionBuilder`, and `ActionBuilder` for programmatic rule creation.
+- [x] **Rule Exporter**: Added YAML generation and file-saving capabilities to the SDK.
+- [x] **Progressive Examples**: Created step-by-step tutorial examples (1.0 to 2.0).
+- [x] **Documentation Guide**: Created `EXAMPLES_GUIDE.md` and `SDK_GUIDE.md`.

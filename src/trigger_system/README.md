@@ -14,13 +14,21 @@ _Standard installation, concepts, and creating your first rule._
 - Basic Rule Structure
 - Running the Engine
 
+### [📦 SDK Guide](./docs/SDK_GUIDE.md)
+
+_Create rules programmatically and export them to YAML._
+
+- `RuleBuilder` (Fluent API)
+- `RuleExporter` (YAML generation)
+- Server vs Client SDK
+
 ### [📖 API Reference](./docs/API_REFERENCE.md)
 
 _Technical details on classes, interfaces, and types._
 
 - `RuleEngine`
 - `TriggerLoader`
-- `TriggerRule` Schema
+- `triggerEmitter` ([Observability](./docs/OBSERVABILITY.md))
 - Condition Operators (`EQ`, `GT`, `MATCHES`, etc.)
 
 ### [🧩 Architecture](./docs/ARCHITECTURE.md)
@@ -54,6 +62,15 @@ _Recommended formats for writing rule files._
 - List Format (Recommended)
 - Multi-Document Format (Legacy)
 - Migration Guide
+
+### [💡 Step-by-Step Examples](./docs/EXAMPLES_GUIDE.md)
+
+_Learn by doing with progressive tutorials._
+
+- 1.0 Basic Rule
+- 1.1 Multiple Conditions
+- 1.3 Stateful Counters
+- 2.0 SDK Usage
 
 ---
 

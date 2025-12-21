@@ -20,12 +20,13 @@ export class ActionRegistry {
   }
 
   register(type: string, handler: ActionHandler) {
-    this.handlers.set(type, handler);
+    this.handlers.set(type.toUpperCase(), handler);
   }
 
   get(type: string): ActionHandler | undefined {
-    return this.handlers.get(type);
+    return this.handlers.get(type.toUpperCase());
   }
+
 
   private registerDefaults() {
     // Log Action

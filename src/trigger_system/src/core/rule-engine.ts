@@ -18,6 +18,8 @@ import { ExpressionEngine } from "../core/expression-engine";
 
 import { ActionRegistry } from "./action-registry";
 import { StateManager } from "./state-manager";
+import { triggerEmitter, EngineEvent } from "../utils/emitter";
+
 
 export class RuleEngine {
   private rules: TriggerRule[] = [];
@@ -33,6 +35,21 @@ export class RuleEngine {
   }
 
   /**
+   * Convenience method to process an event with a simple payload
+   */
+  async processEvent(eventType: string, data: Record<string, any> = {}, globals: Record<string, any> = {}): Promise<TriggerResult[]> {
+    const context: TriggerContext = {
+      event: eventType,
+      data: data,
+      globals: globals,
+      timestamp: Date.now(),
+      state: {} // State will be injected by evaluateContext
+    };
+    return this.evaluateContext(context);
+  }
+
+
+  /**
    * Evalúa todas las reglas contra el contexto proporcionado
    */
   async evaluateContext(context: TriggerContext): Promise<TriggerResult[]> {
@@ -46,6 +63,9 @@ export class RuleEngine {
         `[RuleEngine] Evaluando contexto con ${this.rules.length} reglas para evento: ${context.event}`,
       );
     }
+
+    triggerEmitter.emit(EngineEvent.ENGINE_START, { context, rulesCount: this.rules.length });
+
 
     for (const rule of this.rules) {
       if (rule.enabled === false) continue;
@@ -72,6 +92,9 @@ export class RuleEngine {
           );
         }
 
+        triggerEmitter.emit(EngineEvent.RULE_MATCH, { rule, context });
+
+
         // Ejecutar acciones
         const executedActions = await this.executeRuleActions(rule.do, context);
 
@@ -90,6 +113,8 @@ export class RuleEngine {
         }
       }
     }
+
+    triggerEmitter.emit(EngineEvent.ENGINE_DONE, { results, context });
 
     return results;
   }
@@ -335,6 +360,8 @@ export class RuleEngine {
              result = { warning: `Generic action executed: ${action.type}` };
         }
 
+        triggerEmitter.emit(EngineEvent.ACTION_SUCCESS, { action, context, result });
+
         return {
           type: action.type,
           result,
@@ -342,6 +369,8 @@ export class RuleEngine {
         };
       } catch (error) {
         console.error(`Error ejecutando acción:`, action, error);
+        triggerEmitter.emit(EngineEvent.ACTION_ERROR, { action, context, error: String(error) });
+
         return {
           type: action.type,
           error: String(error),
