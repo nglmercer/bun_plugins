@@ -6,7 +6,12 @@ import fs from "fs";
 
 describe("YAML Examples Validation", () => {
     const examplesDir = path.join(import.meta.dir, "../rules/examples");
-    const files = fs.readdirSync(examplesDir).filter(f => f.endsWith(".yaml") || f.endsWith(".yml"));
+    // Filter YAML files but exclude data files that are not rules
+    const files = fs.readdirSync(examplesDir)
+        .filter(f => (f.endsWith(".yaml") || f.endsWith(".yml"))
+            && !f.includes("config.yaml") // Pure data file for imports
+            && !f.includes("data.json")   // JSON data file
+        );
 
     files.forEach(file => {
         it(`should validate ${file} correctly`, async () => {
