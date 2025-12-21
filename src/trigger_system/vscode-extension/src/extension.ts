@@ -15,9 +15,9 @@ export function activate(context: ExtensionContext) {
   // Try to find the server in different possible locations
   let serverPath: string;
   const possiblePaths = [
-    path.join(context.extensionPath, 'dist/lsp/server.js'),   // Production (prepared)
-    path.join(context.extensionPath, '../dist/lsp/server.js'), // Development
-    path.join(context.extensionPath, 'server.js')             // Fallback
+    path.join(context.extensionPath, 'dist', 'lsp', 'server.bundle.js'),   // Production (bundled)
+    path.join(context.extensionPath, 'dist', 'lsp', 'server.js'),          // Legacy fallback
+    path.join(context.extensionPath, '..', 'dist', 'lsp', 'server.bundle.js') // Development fallback
   ];
   
   for (const tryPath of possiblePaths) {
@@ -30,7 +30,7 @@ export function activate(context: ExtensionContext) {
   
   if (!serverPath!) {
     console.error('Trigger System LSP Client: Could not find server.js in any of:', possiblePaths);
-    throw new Error('LSP Server not found. Please run "npm run build:lsp" first.');
+    throw new Error('LSP Server not found. Please run "npm run build:all" first.');
   }
   
   // Use node to run the compiled JavaScript server
