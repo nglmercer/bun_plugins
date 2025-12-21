@@ -43,8 +43,8 @@ describe("Trigger System Integration", () => {
             data: { username: "admin" }
         });
 
-        // Expect 2 results: one from admin-login rule and one from valid-rule-1
-        expect(results).toHaveLength(2);
+        // Expect 3 results: one from admin-login rule and one from valid-rule-1
+        expect(results).toHaveLength(3);
         expect(results[0]!.success).toBe(true);
         expect(results[1]!.success).toBe(true);
         

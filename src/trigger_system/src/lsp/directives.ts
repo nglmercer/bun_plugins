@@ -1,21 +1,25 @@
 import type { TextDocument } from 'vscode-languageserver-textdocument';
+import { dirname, join } from 'path';
 
 /**
  * Directive types supported in comments
  */
-export type DirectiveType = 
+export type DirectiveType =
     | 'disable-lint'           // Disable all linting
     | 'enable-lint'            // Enable all linting
     | 'disable-next-line'      // Disable lint for next line
     | 'disable-line'           // Disable lint for current line
     | 'disable-rule'           // Disable specific rule(s)
-    | 'enable-rule';           // Enable specific rule(s)
+    | 'enable-rule'            // Enable specific rule(s)
+    | 'import';                // Import data from file
 
 export interface Directive {
     type: DirectiveType;
     line: number;
     rules?: string[];          // Specific rules to disable/enable
     affectedLines: number[];   // Lines affected by this directive
+    importPath?: string;       // File path for import directives
+    importAlias?: string;      // Alias for imported data (e.g., 'data', 'config')
 }
 
 /**
@@ -27,6 +31,8 @@ export interface Directive {
  * - @disable-line
  * - @disable-rule rule-name, rule-name2
  * - @enable-rule rule-name
+ * - @import alias from './path/to/file.json'
+ * - @import alias from './path/to/file.yaml'
  */
 export function parseDirectives(document: TextDocument): Directive[] {
     const text = document.getText();
@@ -119,6 +125,21 @@ function parseDirective(name: string, args: string | undefined, lineNumber: numb
                 affectedLines: [lineNumber + 1]
             };
             
+        case 'import':
+            if (!args) return null;
+            // Parse: alias from './path/to/file.json'
+            const importMatch = args.match(/^\s*(\w+)\s+from\s+['"](.+)['"]\s*$/);
+            if (!importMatch) return null;
+            
+            const [, alias, filePath] = importMatch;
+            return {
+                type,
+                line: lineNumber,
+                importAlias: alias,
+                importPath: filePath,
+                affectedLines: [] // Import directives don't affect linting
+            };
+            
         default:
             return null;
     }
@@ -195,4 +216,29 @@ export function processRangeDirectives(directives: Directive[]): Directive[] {
     }
 
     return processed;
+}
+
+/**
+ * Extract import directives from a document
+ * Returns array of import directives with resolved paths
+ */
+export function getImportDirectives(document: TextDocument, documentUri: string): Array<{ alias: string; path: string }> {
+    const directives = parseDirectives(document);
+    const imports: Array<{ alias: string; path: string }> = [];
+    
+    for (const directive of directives) {
+        if (directive.type === 'import' && directive.importAlias && directive.importPath) {
+            // Resolve relative paths based on document location
+            const documentPath = documentUri.replace('file:///', '').replace(/^\/([A-Z]:)/, '$1');
+            const documentDir = dirname(documentPath);
+            const resolvedPath = join(documentDir, directive.importPath);
+            
+            imports.push({
+                alias: directive.importAlias,
+                path: resolvedPath
+            });
+        }
+    }
+    
+    return imports;
 }

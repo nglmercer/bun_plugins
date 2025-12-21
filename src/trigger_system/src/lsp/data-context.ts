@@ -142,6 +142,39 @@ export class DataContext {
 export const globalDataContext = new DataContext();
 
 /**
+ * Load data from specific import directives
+ */
+export function loadDataFromImports(imports: Array<{ alias: string; path: string }>): void {
+    // Clear existing data first
+    globalDataContext.clear();
+    
+    for (const import_ of imports) {
+        try {
+            const dataContext = new DataContext();
+            dataContext.loadFromFile(import_.path);
+            
+            // Merge the imported data into global context with the specified alias
+            const importedData = dataContext.getValue('');
+            if (importedData && typeof importedData === 'object') {
+                // If alias is 'data', merge directly to root
+                if (import_.alias === 'data') {
+                    globalDataContext.loadFromObject(importedData);
+                } else {
+                    // Otherwise, nest under the alias
+                    globalDataContext.loadFromObject({
+                        [import_.alias]: importedData
+                    });
+                }
+            }
+            
+            console.log(`Loaded data from import: ${import_.alias} -> ${import_.path}`);
+        } catch (error) {
+            console.error(`Failed to load import ${import_.alias} from ${import_.path}:`, error);
+        }
+    }
+}
+
+/**
  * Try to find and load data.json from the workspace
  */
 export function autoLoadDataContext(documentUri: string): void {

@@ -1,5 +1,6 @@
 {
     "username": "admin",
+    "value": "test_string",
     "score": 100,
     "test": true,
     "amount": 10,

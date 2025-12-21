@@ -9,7 +9,8 @@ import type {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDocument, isMap, isSeq, isPair, isScalar, type Node, Scalar, YAMLMap, Pair, YAMLSeq } from 'yaml';
-import { globalDataContext, autoLoadDataContext } from './data-context';
+import { globalDataContext, autoLoadDataContext, loadDataFromImports } from './data-context';
+import { getImportDirectives } from './directives';
 
 // --- CONSTANTS & DEFINITIONS ---
 
@@ -161,8 +162,14 @@ const SNIPPETS: CompletionItem[] = [
 // --- MAIN LOGIC ---
 
 export function getCompletionItems(document: TextDocument, position: Position): CompletionItem[] {
-    // Auto-load data context from workspace
-    autoLoadDataContext(document.uri);
+    // First, try to load data from import directives
+    const imports = getImportDirectives(document, document.uri);
+    if (imports.length > 0) {
+        loadDataFromImports(imports);
+    } else {
+        // Fallback to auto-loading data context from workspace
+        autoLoadDataContext(document.uri);
+    }
     
     const text = document.getText();
     const doc = parseDocument(text);

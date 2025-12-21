@@ -1,7 +1,8 @@
 import type { Hover, MarkupContent, Position } from 'vscode-languageserver/node';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseDocument, isMap, isScalar, type Node, type Pair } from 'yaml';
-import { globalDataContext, autoLoadDataContext } from './data-context';
+import { globalDataContext, autoLoadDataContext, loadDataFromImports } from './data-context';
+import { getImportDirectives } from './directives';
 
 /**
  * Field documentation with descriptions and allowed values
@@ -224,8 +225,14 @@ const ACTION_FIELD_DOCS: Record<string, { description: string; values?: string }
  * Get hover information for a position in the document
  */
 export function getHover(document: TextDocument, position: Position): Hover | null {
-    // Auto-load data context
-    autoLoadDataContext(document.uri);
+    // First, try to load data from import directives
+    const imports = getImportDirectives(document, document.uri);
+    if (imports.length > 0) {
+        loadDataFromImports(imports);
+    } else {
+        // Fallback to auto-loading data context from workspace
+        autoLoadDataContext(document.uri);
+    }
     
     const text = document.getText();
     const offset = document.offsetAt(position);
