@@ -39,6 +39,42 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
       }
   }
 
+  // 1.5 Check for multi-document YAML and suggest list format
+  // Multi-document separator is '---' (on its own line after the first document)
+  const lines = text.split('\n');
+  let foundFirstDocument = false;
+  for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]?.trim() || '';
+      
+      // Skip initial '---' (YAML document start marker)
+      if (i === 0 && line === '---') {
+          foundFirstDocument = true;
+          continue;
+      }
+      
+      // If we find '---' after content, it's a multi-document file
+      if (line === '---' && foundFirstDocument) {
+          const lineStartOffset = text.split('\n').slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+          diagnostics.push({
+              severity: DiagnosticSeverity.Information,
+              range: {
+                  start: textDocument.positionAt(lineStartOffset),
+                  end: textDocument.positionAt(lineStartOffset + line.length)
+              },
+              message: 'Multi-document YAML detected. Consider using list format (- id: ...) for better compatibility and clearer semantics.',
+              source: 'trigger-best-practices',
+              tags: [1] // DiagnosticTag.Unnecessary would be [1] - marks as hint
+          });
+          break; // Only show once per file
+      }
+      
+      // Track that we've seen content
+      if (line.length > 0 && !line.startsWith('#')) {
+          foundFirstDocument = true;
+      }
+  }
+
+
   // 2. Semantic Validation (ArkType)
   // We attempt validation even if there are syntax errors
   try {
