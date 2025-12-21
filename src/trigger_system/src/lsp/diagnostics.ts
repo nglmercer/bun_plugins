@@ -19,7 +19,6 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
   
   // Create a minimal TextDocument object for position calculation
   // We use the library one if accessible, but for simple calculation this is enough.
-  // Actually we need `positionAt`. Since we import TextDocument, we can instantiate it.
   const textDocument = TextDocument.create("file://test", "yaml", 1, text);
 
   // Parse YAML with CST (Concrete Syntax Tree) from 'yaml' package
@@ -38,8 +37,11 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
               source: 'yaml-parser'
           });
       }
-  } else {
-      // 2. Semantic Validation (ArkType)
+  }
+
+  // 2. Semantic Validation (ArkType)
+  // We attempt validation even if there are syntax errors
+  try {
       const json = doc.toJS();
       if (json && typeof json === 'object') {
           // Handle Wrapper Object (Headers), Array of Rules, or Single Rule
@@ -84,6 +86,8 @@ export async function getDiagnosticsForText(text: string): Promise<Diagnostic[]>
                }
           });
       }
+  } catch (e) {
+      // verification failed, likely due to severe syntax errors, which are already reported.
   }
   return diagnostics;
 }

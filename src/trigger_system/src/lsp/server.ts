@@ -16,6 +16,7 @@ import {
 } from 'vscode-languageserver-textdocument';
 import { getDiagnosticsForText } from './diagnostics';
 import { getCompletionItems } from './completions';
+import { semanticTokensLegend, getSemanticTokens } from './semantic_tokens';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -44,6 +45,10 @@ connection.onInitialize((params: InitializeParams) => {
       completionProvider: {
         resolveProvider: true,
         triggerCharacters: [':', ' ', '-', '$', '{', '.', '[']
+      },
+      semanticTokensProvider: {
+        legend: semanticTokensLegend,
+        full: true
       }
     }
   };
@@ -104,6 +109,16 @@ connection.onCompletionResolve(
     return item;
   }
 );
+
+connection.languages.semanticTokens.on((params) => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+        return { data: [] };
+    }
+    const text = document.getText();
+    const tokens = getSemanticTokens(text);
+    return { data: tokens };
+});
 
 documents.listen(connection);
 connection.listen();
