@@ -136,8 +136,15 @@ function findRangeForPath(
 ): { start: { line: number, character: number }, end: { line: number, character: number } } {
     
     let current: Node | null = contents;
-    for (const key of pathParts) {
+    let parentNode: Node | null = null;
+    let lastFoundIndex = -1;
+    
+    for (let i = 0; i < pathParts.length; i++) {
+        const key = pathParts[i];
         if (!current) break;
+        
+        parentNode = current; // Keep track of parent
+        lastFoundIndex = i;
         
         if (isMap(current)) {
             // current is YAMLMap
@@ -148,21 +155,27 @@ function findRangeForPath(
             if (pair && pair.value) {
                 current = pair.value as Node; 
             } else {
+                // Key not found in map
                 current = null;
+                break;
             }
         } else if (isSeq(current)) {
             // current is YAMLSeq
-            const idx = parseInt(key);
+            const idx = parseInt(key!);
             if (!isNaN(idx) && current.items[idx]) {
                 current = current.items[idx] as Node;
             } else {
                 current = null;
+                break;
             }
         } else {
             current = null;
+            break;
         }
     }
 
+    // If we found the node, return its range
+    // NOTE: Only Node types have range, not Pair types
     if (current && current.range) {
         return {
             start: textDocument.positionAt(current.range[0]),
@@ -170,6 +183,55 @@ function findRangeForPath(
         };
     }
 
+    // If we couldn't find the exact path, but found a parent, use parent's range
+    // This happens when a required field is missing
+    if (parentNode && parentNode.range) {
+        // Try to find the specific key that's missing
+        const missingKey = pathParts[lastFoundIndex + 1];
+        
+        // If the parent is a map and we know which key is missing
+        if (isMap(parentNode) && missingKey) {
+            // Position the error after the last item in the map
+            // This gives better context than position (0,0)
+            const lastItem = parentNode.items[parentNode.items.length - 1];
+            // Pairs don't have range, but their value nodes do
+            if (lastItem && 'value' in lastItem && lastItem.value) {
+                const valueNode = lastItem.value as Node;
+                if (valueNode.range) {
+                    const pos = textDocument.positionAt(valueNode.range[1]);
+                    return {
+                        start: pos,
+                        end: pos
+                    };
+                }
+            }
+        }
+        
+        // Otherwise use the start of the parent node
+        if ('range' in parentNode && parentNode.range) {
+            return {
+                start: textDocument.positionAt(parentNode.range[0]),
+                end: textDocument.positionAt(parentNode.range[0])
+            };
+        }
+    }
+
+    // Last resort: try to find the rule that has the issue
+    // For array indices, go back and find the rule
+    if (pathParts.length > 0 && !isNaN(parseInt(pathParts[0]!))) {
+        const ruleIndex = parseInt(pathParts[0]!);
+        if (isSeq(contents) && contents.items[ruleIndex]) {
+            const ruleNode = contents.items[ruleIndex] as Node;
+            if (ruleNode && 'range' in ruleNode && ruleNode.range) {
+                return {
+                    start: textDocument.positionAt(ruleNode.range[0]),
+                    end: textDocument.positionAt(ruleNode.range[0])
+                };
+            }
+        }
+    }
+
+    // Absolute fallback
     return {
          start: textDocument.positionAt(0),
          end: textDocument.positionAt(0)

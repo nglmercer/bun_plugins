@@ -17,6 +17,7 @@ import {
 import { getDiagnosticsForText } from './diagnostics';
 import { getCompletionItems } from './completions';
 import { semanticTokensLegend, getSemanticTokens } from './semantic_tokens';
+import { getHover } from './hover';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -46,6 +47,7 @@ connection.onInitialize((params: InitializeParams) => {
         resolveProvider: true,
         triggerCharacters: [':', ' ', '-', '$', '{', '.', '[']
       },
+      hoverProvider: true,
       semanticTokensProvider: {
         legend: semanticTokensLegend,
         full: true
@@ -118,6 +120,15 @@ connection.languages.semanticTokens.on((params) => {
     const text = document.getText();
     const tokens = getSemanticTokens(text);
     return { data: tokens };
+});
+
+// Provide hover information
+connection.onHover((params) => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+        return null;
+    }
+    return getHover(document, params.position);
 });
 
 documents.listen(connection);

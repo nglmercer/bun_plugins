@@ -47,6 +47,14 @@ _Tools to help you build and debug rules._
 - VS Code LSP Integration
 - Circular Dependency Detection
 
+### [📝 YAML Best Practices](./docs/yaml-best-practices.md)
+
+_Recommended formats for writing rule files._
+
+- List Format (Recommended)
+- Multi-Document Format (Legacy)
+- Migration Guide
+
 ---
 
 ## Quick Example
