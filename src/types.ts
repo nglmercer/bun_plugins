@@ -1,4 +1,37 @@
 import { z } from "zod";
+
+export enum WorkerMessageType {
+    RPC_CALL = 'RPC_CALL',
+    HOOK_CALL = 'HOOK_CALL',
+    HOOK_RESULT = 'HOOK_RESULT',
+    HOOK_ERROR = 'HOOK_ERROR',
+    EVENT_EMIT = 'EVENT_EMIT',
+    MANIFEST = 'MANIFEST',
+    LOAD_SUCCESS = 'LOAD_SUCCESS',
+    LOAD_ERROR = 'LOAD_ERROR',
+    START_UP = 'START_UP',
+    UNLOAD = 'UNLOAD'
+}
+
+export enum PluginPermission {
+    Network = 'network',
+    Filesystem = 'filesystem',
+    Env = 'env'
+}
+
+export enum RPCMethod {
+    StorageGet = 'storage:get',
+    StorageSet = 'storage:set',
+    StorageDelete = 'storage:delete',
+    StorageClear = 'storage:clear',
+    EventsEmit = 'events:emit',
+    EventsOn = 'events:on',
+    HooksRegister = 'hooks:register',
+    ManagerGetPlugin = 'manager:getPlugin',
+    Log = 'log',
+    NetworkFetch = 'network:fetch',
+    PermissionCheck = 'perm:check'
+}
 export interface PluginResource {
     workers: Worker[];
     timers: { id: number | Timer; type: 'timeout' | 'interval' }[];
@@ -117,7 +150,7 @@ export interface IPlugin {
   dependencies?: Record<string, string>; // e.g. { "other-plugin": "^1.0.0" }
 
   // Permissions
-  permissions?: ('network' | 'filesystem' | 'env')[];
+  permissions?: PluginPermission[];
   allowedDomains?: string[]; // Whitelist for network access
 
   onLoad(context: PluginContext): Promise<void> | void;

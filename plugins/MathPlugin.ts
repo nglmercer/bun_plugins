@@ -1,4 +1,4 @@
-import type { IPlugin, PluginContext } from "../types";
+import type { IPlugin, PluginContext } from "../src";
 
 export class MathPlugin implements IPlugin {
   name = "math-plugin";

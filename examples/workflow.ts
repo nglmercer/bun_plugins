@@ -1,90 +1,55 @@
-import { RuleBuilder, RuleEngine, ActionRegistry,ExpressionEngine } from 'trigger_system/node';
 
-// --- Mocks de Infraestructura (Simulando lo que haría bun_plugins/core) ---
-
-// 1. Definición de proveedores de TTS
-interface TTSProvider {
-    name: string;
-    speak(text: string, voice?: string): Promise<void>;
-}
-
-class MockEdgeTTS implements TTSProvider {
-    name = "EdgeTTS";
-    async speak(text: string, voice?: string) {
-        console.log(`[🔊 EdgeTTS] Speaking (${voice || 'default'}): "${text}"`);
-    }
-}
-
-class MockGoogleTTS implements TTSProvider {
-    name = "GoogleTTS";
-    async speak(text: string, voice?: string) {
-        console.log(`[🔊 GoogleTTS] Speaking (${voice || 'default'}): "${text}"`);
-    }
-}
-
-// 2. Registro de Funcionalidades (El "Loader/Exposer" que mencionaste)
-class ServiceRegistry {
-    private ttsProvider: TTSProvider;
-
-    constructor(defaultProvider: TTSProvider) {
-        this.ttsProvider = defaultProvider;
-    }
-
-    setTTSProvider(provider: TTSProvider) {
-        console.log(`\n[🔄 System] Switching TTS Provider to: ${provider.name}`);
-        this.ttsProvider = provider;
-    }
-
-    // Esta función se ejecutaría cuando el motor de reglas devuelve una acción 'tts_speak'
-    async executeAction(actionType: string, params: any) {
-        if (actionType === 'tts_speak') {
-            await this.ttsProvider.speak(params.text, params.voice);
-        } else {
-            console.log(`[⚙️ System] Unknown action: ${actionType}`, params);
-        }
-    }
-}
+import { RuleBuilder, RuleEngine, ActionRegistry, ExpressionEngine } from 'trigger_system/node';
+import { PluginManager } from '../src';
+import { TTSService } from './tts';
+import { EdgeTTSPlugin } from '../plugins/EdgeTTSPlugin';
 
 // --- Workflow Principal ---
 
 async function main() {
-    console.log("=== 🚀 Starting TTS Chat Workflow Demo ===\n");
+    console.log("=== 🚀 Starting TTS Chat Workflow Demo (Clean Lib Version) ===\n");
 
-    // Inicializar servicios
-    const edgeTTS = new MockEdgeTTS();
-    const googleTTS = new MockGoogleTTS();
-    const services = new ServiceRegistry(edgeTTS); // Empezamos con Edge
+    // 1. Inicializar el sistema de plugins (usa process.cwd() por defecto)
+    const pluginManager = new PluginManager();
+    
+    // Registramos proveedores mediante plugins
+    // El TTSService está en el host (examples/tts)
+    await pluginManager.register(new EdgeTTSPlugin());
+
+    const tts = TTSService.getInstance();
+    
+    // Por defecto usaremos el de log, o el que el plugin registre
+    tts.setProvider("EdgeTTS");
+
+    // 2. Registro de Funcionalidades en el ActionRegistry del Motor
     ActionRegistry.getInstance().register("tts_speak", async (action, context) => {
-        const textTemplate = action.params?.text || "";
+        const textTemplate = (action.params?.text as string) || "";
         
         // USAMOS EL MOTOR DE EXPRESIONES INTERNO
-        // Esto resuelve automáticamente ${data.message}, ${data.user.name}, etc.
         const resolvedText = ExpressionEngine.interpolate(String(textTemplate), context);
-        const voice = action.params?.voice;
-        await services.executeAction("tts_speak", { text: resolvedText, voice });
+        const voice = action.params?.voice as string | undefined;
         
-        return { spoken: resolvedText }; // Lo que devuelve la acción
+        // El servicio de TTS centralizado (HOST) decide qué proveedor usar
+        await tts.speak(resolvedText, voice ?? undefined);
+        
+        return { spoken: resolvedText };
     });
-    // 1. Definir Reglas Iniciales 
-    // Regla: Leer solo mensajes que empiezan con "!" (Comandos)
+
+    // 3. Definir Reglas
     const commandRule = new RuleBuilder()
         .withId("rule-commands")
         .withName("Read Commands")
-        .withDescription("Reads messages starting with !")
-        .withPriority(10)
         .on("CHAT_MESSAGE")
-        .if("data.message", "MATCHES", "^!.*") // Regex match
+        .if("data.message", "MATCHES", "^!.*")
         .do("tts_speak", { 
             text: "Command received: ${data.message}", 
             voice: "en-US-AriaNeural" 
         })
         .build();
 
-    // Regla: Leer mensajes de usuarios VIP
     const vipRule = new RuleBuilder()
         .withId("rule-vip")
         .withName("Read VIPs")
-        .withPriority(5)
         .on("CHAT_MESSAGE")
         .if("data.user.isVip", "EQ", true)
         .do("tts_speak", { 
@@ -96,17 +61,9 @@ async function main() {
     // Inicializar Motor
     const engine = new RuleEngine({
         rules: [commandRule, vipRule],
-        globalSettings: { debugMode: false } // Menos ruido para este demo
+        globalSettings: { debugMode: false }
     });
 
-/*     await engine.processEvent({
-        event: "CHAT_MESSAGE",
-        timestamp: Date.now(),
-        data: {
-            message: "¡Me encanta el stream!",
-            user: { name: "Juan", isVip: true }
-        }
-    }); */
     async function processChat(user: string, message: string, isVip = false) {
         await engine.processEvent({
             event: "CHAT_MESSAGE",
@@ -117,27 +74,24 @@ async function main() {
             }
         });
     }
-    // --- ESCENARIO 1: Operación Normal (EdgeTTS) ---
-    console.log("--- 1. Testing Initial Rules (EdgeTTS) ---");
-    await processChat("user1", "Hello world"); // No pasa nada (no VIP, no comando)
-    await processChat("user2", "!help");       // Match comando
-    await processChat("vipUser", "I love this stream!", true); // Match VIP
 
-    // --- ESCENARIO 2: Actualización de Proveedor ---
-    console.log("\n--- 2. Updating Service Provider (Switch to GoogleTTS) ---");
-    services.setTTSProvider(googleTTS);
+    // --- ESCENARIO 1: Operación con Plugin (EdgeTTS) ---
+    console.log("--- 1. Testing Rules with EdgeTTS Plugin ---");
+    await processChat("user2", "!help");
+    await processChat("vipUser", "I love this clean plugin system!", true);
+
+    // --- ESCENARIO 2: Volver al Proveedor Base (LogTTS) ---
+    console.log("\n--- 2. Switching back to Base Provider (LogTTS) ---");
+    tts.setProvider("LogTTS");
     
-    await processChat("vipUser", "Does this sound different?", true);
+    await processChat("vipUser", "Is this just logging now?", true);
 
-    // --- ESCENARIO 3: Actualización de Reglas en Caliente ---
+    // --- ESCENARIO 3: Hot Swapping Rules ---
     console.log("\n--- 3. Hot Swapping Rules (Enable 'Read All') ---");
     
     const readAllRule = new RuleBuilder()
         .withId("rule-read-all")
-        .withName("Read Everything")
-        .withPriority(1) // Baja prioridad
         .on("CHAT_MESSAGE")
-        // Sin condiciones = siempre ejecuta si el evento coincide
         .do("tts_speak", { 
             text: "${data.user.name} said: ${data.message}" 
         })

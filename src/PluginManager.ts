@@ -3,13 +3,16 @@ import { EventEmitter } from "node:events";
 import { readdir, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { watch } from "node:fs";
-import type { 
-    IPlugin, 
-    PluginContext, 
-    AppEvents,
-    BunWorkerOptions as WorkerOptions,
-    OnResolveArgs, 
-    OnLoadArgs,
+import { 
+    type IPlugin, 
+    type PluginContext, 
+    type AppEvents,
+    type BunWorkerOptions as WorkerOptions,
+    type OnResolveArgs, 
+    type OnLoadArgs,
+    WorkerMessageType,
+    PluginPermission,
+    RPCMethod
 } from "./types";
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
@@ -35,7 +38,7 @@ export class PluginManager extends EventEmitter {
   private pluginLoadTimeout: number;
   private workerFactory: (url: string | URL, options?: WorkerOptions) => Worker;
   private workerRunnerPath: string;
-  constructor(storageRoot: string = "./storage", options?: { 
+  constructor(storageRoot: string = join(process.cwd(), "storage"), options?: { 
     pluginLoadTimeout?: number, 
     workerFactory?: (url: string | URL, options?: WorkerOptions) => Worker,
     workerRunnerPath?: string 
@@ -180,13 +183,13 @@ export class PluginManager extends EventEmitter {
 
            // Cache permission checks
            let pluginMetadata: IPlugin | undefined;
-           const checkPermission = (perm: 'network' | 'filesystem' | 'env', url?: string) => {
+           const checkPermission = (perm: PluginPermission, url?: string) => {
                 if (!pluginMetadata) {
                     throw new Error(`AccessDenied: Cannot perform '${perm}' operations before plugin metadata is initialized.`);
                 } 
-                if (perm === 'network' && url) {
+                if (perm === PluginPermission.Network && url) {
                     checkNetworkPermission(pluginName, pluginMetadata.permissions, pluginMetadata.allowedDomains, url);
-                } else if (perm === 'filesystem' || perm === 'env') {
+                } else if (perm === PluginPermission.Filesystem || perm === PluginPermission.Env) {
                     checkGeneralPermission(pluginName, pluginMetadata.permissions, perm);
                 }
                 return true;
@@ -399,7 +402,7 @@ export class PluginManager extends EventEmitter {
     return super.on(eventName, listener);
   }
 
-  async loadPluginsFromDirectory(directoryPath: string): Promise<void> {
+  async loadPluginsFromDirectory(directoryPath: string = join(process.cwd(), "plugins")): Promise<void> {
     try {
       const globalConfigPath = join(this.storageRoot, "plugins.json");
       let disabledPlugins: string[] = [];
