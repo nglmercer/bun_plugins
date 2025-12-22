@@ -2,6 +2,15 @@
   "name": "bun_plugins",
   "version": "1.0.0",
   "description": "A powerful and secure plugin system for Bun applications",
+  "author": "memelser <nglmercer@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nglmercer/bun_plugins.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nglmercer/bun_plugins/issues"
+  },
+  "homepage": "https://github.com/nglmercer/bun_plugins#readme",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,7 +33,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/semver": "^7.7.1",
-    "trigger_system": "^1.0.4",
+    "bun_plugins": "^1.0.4",
     "typescript": "^5.0.0"
   },
   "dependencies": {
