@@ -1,7 +1,12 @@
 
 import type { ITTSProvider } from "./provider";
-import { LogTTSProvider } from "./providers/log";
-
+class LogTTSProvider implements ITTSProvider {
+    name = "log";
+    
+    async speak(text: string, voice?: string) {
+        console.log(`[TTS] ${text}`);
+    }
+}
 export class TTSService {
     private static instance: TTSService;
     private providers: Map<string, ITTSProvider> = new Map();
