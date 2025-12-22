@@ -67,7 +67,7 @@ describe("Plugin System", () => {
 
   test("should load plugins from directory", async () => {
     const manager = new PluginManager();
-    const pluginsDir = join(process.cwd(), "src", "plugins");
+    const pluginsDir = join(process.cwd(),"plugins");
 
     await manager.loadPluginsFromDirectory(pluginsDir);
 

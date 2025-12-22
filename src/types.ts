@@ -32,6 +32,17 @@ export enum RPCMethod {
     NetworkFetch = 'network:fetch',
     PermissionCheck = 'perm:check'
 }
+
+export enum HookType {
+    ON_RESOLVE = 'onResolve',
+    ON_LOAD = 'onLoad'
+}
+
+export enum HookOrder {
+    PRE = 'pre',
+    POST = 'post'
+}
+
 export interface PluginResource {
     workers: Worker[];
     timers: { id: number | Timer; type: 'timeout' | 'interval' }[];
@@ -42,7 +53,7 @@ export interface HookRegistry<T> {
     filter: RegExp;
     callback: T;
     pluginName: string;
-    order?: 'pre' | 'post';
+    order?: HookOrder;
 }
 // Define a global map of events for type safety
 // Users can use declaration merging to extend this interface
@@ -173,6 +184,6 @@ export type OnLoadResult = { contents: string; loader?: string } | undefined | n
 export type OnLoadCallback = (args: OnLoadArgs) => OnLoadResult | Promise<OnLoadResult>;
 
 export interface PluginBuilder {
-  onResolve(filter: RegExp, callback: OnResolveCallback, options?: { order?: 'pre' | 'post' }): void;
-  onLoad(filter: RegExp, callback: OnLoadCallback, options?: { order?: 'pre' | 'post' }): void;
+  onResolve(filter: RegExp, callback: OnResolveCallback, options?: { order?: HookOrder }): void;
+  onLoad(filter: RegExp, callback: OnLoadCallback, options?: { order?: HookOrder }): void;
 }

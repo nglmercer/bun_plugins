@@ -1,11 +1,13 @@
 
-import type { 
-    OnResolveCallback, 
-    OnLoadCallback, 
-    OnResolveArgs, 
-    OnLoadArgs, 
-    HookRegistry,
-    PluginBuilder
+import { 
+    type OnResolveCallback, 
+    type OnLoadCallback, 
+    type OnResolveArgs, 
+    type OnLoadArgs, 
+    type HookRegistry,
+    type PluginBuilder,
+    HookOrder,
+    HookType
 } from "../types";
 import type { BunPlugin } from "bun";
 
@@ -13,18 +15,18 @@ export class HooksManager {
     private onResolveHooks: HookRegistry<OnResolveCallback>[] = [];
     private onLoadHooks: HookRegistry<OnLoadCallback>[] = [];
 
-    registerOnResolve(filter: RegExp, callback: OnResolveCallback, pluginName: string, order?: 'pre' | 'post') {
+    registerOnResolve(filter: RegExp, callback: OnResolveCallback, pluginName: string, order?: HookOrder) {
         // Performance wrapper could be applied here or by caller.
         // For simplicity, we store as is.
         this.onResolveHooks.push({ filter, callback, pluginName, order });
     }
 
-    registerOnLoad(filter: RegExp, callback: OnLoadCallback, pluginName: string, order?: 'pre' | 'post') {
+    registerOnLoad(filter: RegExp, callback: OnLoadCallback, pluginName: string, order?: HookOrder) {
         this.onLoadHooks.push({ filter, callback, pluginName, order });
     }
 
-    getHookCount(type: 'onResolve' | 'onLoad'): number {
-        return type === 'onResolve' ? this.onResolveHooks.length : this.onLoadHooks.length;
+    getHookCount(type: HookType): number {
+        return type === HookType.ON_RESOLVE ? this.onResolveHooks.length : this.onLoadHooks.length;
     }
 
     cleanup(pluginName: string) {
@@ -34,7 +36,7 @@ export class HooksManager {
 
     async runOnResolve(args: OnResolveArgs): Promise<{ path: string; namespace?: string } | null> {
         const sortedHooks = [...this.onResolveHooks].sort((a, b) => {
-            const score = (o?: 'pre' | 'post') => o === 'pre' ? -1 : o === 'post' ? 1 : 0;
+            const score = (o?: HookOrder) => o === HookOrder.PRE ? -1 : o === HookOrder.POST ? 1 : 0;
             return score(a.order) - score(b.order);
         });
 
@@ -53,7 +55,7 @@ export class HooksManager {
 
     async runOnLoad(args: OnLoadArgs): Promise<{ contents?: string; loader?: string } | null> {
         const sortedHooks = [...this.onLoadHooks].sort((a, b) => {
-            const score = (o?: 'pre' | 'post') => o === 'pre' ? -1 : o === 'post' ? 1 : 0;
+            const score = (o?: HookOrder) => o === HookOrder.PRE ? -1 : o === HookOrder.POST ? 1 : 0;
             return score(a.order) - score(b.order);
         });
 

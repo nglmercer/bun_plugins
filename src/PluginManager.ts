@@ -12,7 +12,8 @@ import {
     type OnLoadArgs,
     WorkerMessageType,
     PluginPermission,
-    RPCMethod
+    RPCMethod,
+    HookType
 } from "./types";
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
@@ -196,28 +197,28 @@ export class PluginManager extends EventEmitter {
            };
            
            const rpcHandler = async (msg: any) => {
-               if (msg.type === 'RPC_CALL') {
+               if (msg.type === WorkerMessageType.RPC_CALL) {
                    const { id, method, args } = msg;
                    try {
                        let result;
-                       if (method === 'storage:get') result = await storage.get(args[0], args[1]);
-                       else if (method === 'storage:set') result = await storage.set(args[0], args[1]);
-                       else if (method === 'storage:delete') result = await storage.delete(args[0]);
-                       else if (method === 'storage:clear') result = await storage.clear();
-                       else if (method === 'events:emit') {
+                       if (method === RPCMethod.StorageGet) result = await storage.get(args[0], args[1]);
+                       else if (method === RPCMethod.StorageSet) result = await storage.set(args[0], args[1]);
+                       else if (method === RPCMethod.StorageDelete) result = await storage.delete(args[0]);
+                       else if (method === RPCMethod.StorageClear) result = await storage.clear();
+                       else if (method === RPCMethod.EventsEmit) {
                            this.emit(args[0], args[1]);
                            result = true;
                        }
-                       else if (method === 'events:on') {
+                       else if (method === RPCMethod.EventsOn) {
                             const eventName = args[0];
                             const listener = (payload: any) => {
-                                worker.postMessage({ type: 'EVENT_EMIT', event: eventName, payload });
+                                worker.postMessage({ type: WorkerMessageType.EVENT_EMIT, event: eventName, payload });
                             };
                             this.on(eventName, listener);
                             res.eventListeners.push({ event: eventName, listener });
                             result = true;
                        }
-                       else if (method === 'hooks:register') {
+                       else if (method === RPCMethod.HooksRegister) {
                             const [ type, { filter, id: hookId, options } ] = args;
                             const filterRegExp = new RegExp(filter);
                             
@@ -225,7 +226,7 @@ export class PluginManager extends EventEmitter {
                                 return new Promise<any>((resolve, reject) => {
                                     const requestId = Math.random().toString(36).substring(7);
                                     pendingHooks.set(requestId, { resolve, reject });
-                                    worker.postMessage({ type: 'HOOK_CALL', id: hookId, args: hookArgs, requestId });
+                                    worker.postMessage({ type: WorkerMessageType.HOOK_CALL, id: hookId, args: hookArgs, requestId });
                                     
                                     setTimeout(() => {
                                         if (pendingHooks.has(requestId)) {
@@ -236,24 +237,24 @@ export class PluginManager extends EventEmitter {
                                 });
                             };
 
-                            if (type === 'onResolve') {
-                                this.hooksManager.registerOnResolve(filterRegExp, proxyCallback, pluginName, options?.order);
-                            } else if (type === 'onLoad') {
-                                this.hooksManager.registerOnLoad(filterRegExp, proxyCallback, pluginName, options?.order);
-                            }
+                             if (type === HookType.ON_RESOLVE) {
+                                 this.hooksManager.registerOnResolve(filterRegExp, proxyCallback, pluginName, options?.order);
+                             } else if (type === HookType.ON_LOAD) {
+                                 this.hooksManager.registerOnLoad(filterRegExp, proxyCallback, pluginName, options?.order);
+                             }
                             result = true;
                        }
-                       else if (method === 'manager:getPlugin') {
+                       else if (method === RPCMethod.ManagerGetPlugin) {
                            const targetName = args[0];
                            const p = this.getPlugin(targetName);
                            result = p?.getSharedApi ? p.getSharedApi() : undefined;
                        }
-                       else if (method === 'log') {
+                       else if (method === RPCMethod.Log) {
                            const level = args[0] as 'info' | 'warn' | 'error';
                            console[level](`[${pluginName}]`, ...args.slice(1));
                            result = true;
                        }
-                       else if (method === 'perm:check') {
+                       else if (method === RPCMethod.PermissionCheck) {
                            const perm = args[0];
                            // Real permission check would go here, for now we assume 
                            // we need to know the plugin's requested permissions.
@@ -261,11 +262,11 @@ export class PluginManager extends EventEmitter {
                            // we might need a preliminary manifest read or a 'DECLARE' RPC.
                            result = true; 
                        }
-                        else if (method === 'network:fetch') {
+                        else if (method === RPCMethod.NetworkFetch) {
                             const [input, init] = args;
                             const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
                             
-                            checkPermission('network', urlStr);
+                            checkPermission(PluginPermission.Network, urlStr);
                             
                             const response = await fetch(input, init);
                             result = {
@@ -282,7 +283,7 @@ export class PluginManager extends EventEmitter {
                         worker.postMessage({ id, error: error.message });
                    }
                }
-               else if (msg.type === 'HOOK_RESULT') {
+               else if (msg.type === WorkerMessageType.HOOK_RESULT) {
                    const { requestId, result } = msg;
                    const pending = pendingHooks.get(requestId);
                    if (pending) {
@@ -290,7 +291,7 @@ export class PluginManager extends EventEmitter {
                        pending.resolve(result);
                    }
                }
-               else if (msg.type === 'HOOK_ERROR') {
+               else if (msg.type === WorkerMessageType.HOOK_ERROR) {
                    const { requestId, error } = msg;
                    const pending = pendingHooks.get(requestId);
                    if (pending) {
@@ -298,12 +299,12 @@ export class PluginManager extends EventEmitter {
                         pending.reject(new Error(error));
                    }
                }
-                else if (msg.type === 'MANIFEST') {
+                else if (msg.type === WorkerMessageType.MANIFEST) {
                     const { metadata } = msg;
                     pluginMetadata = metadata;
                     console.log(`Metadata received for isolated plugin: ${metadata.name}`);
                 }
-                else if (msg.type === 'LOAD_SUCCESS') {
+                else if (msg.type === WorkerMessageType.LOAD_SUCCESS) {
                      clearTimeout(timeoutId); // Success, clear global timeout
                      const { metadata } = msg;
                      pluginMetadata = metadata; // Update permission cache (redundant if MANIFEST sent but safe)
@@ -316,10 +317,10 @@ export class PluginManager extends EventEmitter {
                         allowedDomains: metadata.allowedDomains,
                         onLoad: () => {}, 
                         onStarted: () => {
-                            worker.postMessage({ type: 'START_UP' });
+                            worker.postMessage({ type: WorkerMessageType.START_UP });
                         },
                         onUnload: async () => {
-                            worker.postMessage({ type: 'UNLOAD' });
+                            worker.postMessage({ type: WorkerMessageType.UNLOAD });
                             // Give the worker some time to clean up
                             await new Promise(r => setTimeout(r, 200));
                             worker.terminate();
@@ -334,7 +335,7 @@ export class PluginManager extends EventEmitter {
                     console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);
                     resolve();
                }
-                else if (msg.type === 'LOAD_ERROR') {
+                else if (msg.type === WorkerMessageType.LOAD_ERROR) {
                     clearTimeout(timeoutId);
                     // Cleanup pending hooks on load error
                     for (const pending of pendingHooks.values()) {
@@ -595,8 +596,8 @@ export class PluginManager extends EventEmitter {
           activePlugins: Array.from(this.plugins.keys()),
           resources: this.resources.getUsageSummary(),
           hooks: {
-              onResolve: this.hooksManager.getHookCount('onResolve'),
-              onLoad: this.hooksManager.getHookCount('onLoad')
+              onResolve: this.hooksManager.getHookCount(HookType.ON_RESOLVE),
+              onLoad: this.hooksManager.getHookCount(HookType.ON_LOAD)
           }
       };
   }

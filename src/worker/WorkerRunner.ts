@@ -1,6 +1,13 @@
 
 import { parentPort, workerData } from "worker_threads";
-import { type IPlugin, type PluginContext } from "../types";
+import { 
+    type IPlugin, 
+    type PluginContext, 
+    WorkerMessageType, 
+    PluginPermission, 
+    RPCMethod,
+    HookType
+} from "../types";
 import { errorParser } from "../utils/errorParser";
 // This is the "Shell" that runs inside the Worker.
 // It receives the plugin path, loads it, and executes onLoad.
@@ -28,7 +35,7 @@ function rpc(method: string, ...args: any[]): Promise<any> {
         };
         
         parentPort!.on('message', handler);
-        parentPort!.postMessage({ type: 'RPC_CALL', id, method, args });
+        parentPort!.postMessage({ type: WorkerMessageType.RPC_CALL, id, method, args });
     });
 }
 
@@ -37,22 +44,22 @@ async function run() {
 
     // Setup message handler for incoming requests from Main Thread
     parentPort!.on('message', async (msg: any) => {
-        if (msg.type === 'HOOK_CALL') {
+        if (msg.type === WorkerMessageType.HOOK_CALL) {
             const { id, args, requestId } = msg;
             const callback = hookCallbacks.get(id);
             if (callback) {
                 try {
                     const result = await callback(args);
-                    parentPort!.postMessage({ type: 'HOOK_RESULT', requestId, result });
+                    parentPort!.postMessage({ type: WorkerMessageType.HOOK_RESULT, requestId, result });
                 } catch (e) {
                     const error = errorParser(e, `Error in hook ${id}`);
-                    parentPort!.postMessage({ type: 'HOOK_ERROR', requestId, error: error.message });
+                    parentPort!.postMessage({ type: WorkerMessageType.HOOK_ERROR, requestId, error: error.message });
                 }
             } else {
-                 parentPort!.postMessage({ type: 'HOOK_ERROR', requestId, error: "Hook not found" });
+                 parentPort!.postMessage({ type: WorkerMessageType.HOOK_ERROR, requestId, error: "Hook not found" });
             }
         } 
-        else if (msg.type === 'EVENT_EMIT') {
+        else if (msg.type === WorkerMessageType.EVENT_EMIT) {
             const { event, payload } = msg;
             const listeners = localEventListeners.get(event);
             if (listeners) {
@@ -66,7 +73,7 @@ async function run() {
                 }
             }
         }
-        else if (msg.type === 'UNLOAD') {
+        else if (msg.type === WorkerMessageType.UNLOAD) {
             console.log(`[Worker:${pluginName}] Received UNLOAD signal.`);
             if (plugin && plugin.onUnload) {
                 try {
@@ -99,7 +106,7 @@ async function run() {
 
         // Send Manifest immediately after load for security context initialization in host
         parentPort!.postMessage({
-            type: 'MANIFEST',
+            type: WorkerMessageType.MANIFEST,
             metadata: {
                 name: plugin.name,
                 version: plugin.version,
@@ -116,35 +123,35 @@ async function run() {
             config: plugin.defaultConfig || {}, // Initial config (todo: fetch actual valid config)
             
             storage: {
-                get: (key) => rpc('storage:get', key),
-                set: (key, val) => rpc('storage:set', key, val),
-                delete: (key) => rpc('storage:delete', key),
-                clear: () => rpc('storage:clear')
+                get: (key) => rpc(RPCMethod.StorageGet, key),
+                set: (key, val) => rpc(RPCMethod.StorageSet, key, val),
+                delete: (key) => rpc(RPCMethod.StorageDelete, key),
+                clear: () => rpc(RPCMethod.StorageClear)
             },
             
-            emit: (event, payload) => rpc('events:emit', event, payload),
+            emit: (event, payload) => rpc(RPCMethod.EventsEmit, event, payload),
             
             on: (event, cb) => {
                  const evtName = event as string;
                  if (!localEventListeners.has(evtName)) {
                      localEventListeners.set(evtName, new Set());
                      // Register intention to listen with main thread
-                     rpc('events:on', evtName); 
+                     rpc(RPCMethod.EventsOn, evtName); 
                  }
                  localEventListeners.get(evtName)!.add(cb);
             },
             
             events: {
-                emit: (event, payload) => rpc('events:emit', event, payload),
+                emit: (event, payload) => rpc(RPCMethod.EventsEmit, event, payload),
                 on: (event, cb) => contextProxy.on(event, cb)
             },
             
-            getPlugin: (name: string) => rpc('manager:getPlugin', name),
+            getPlugin: (name: string) => rpc(RPCMethod.ManagerGetPlugin, name),
             
             log: {
-                info: (msg, ...args) => rpc('log', 'info', msg, ...args),
-                warn: (msg, ...args) => rpc('log', 'warn', msg, ...args),
-                error: (msg, ...args) => rpc('log', 'error', msg, ...args),
+                info: (msg, ...args) => rpc(RPCMethod.Log, 'info', msg, ...args),
+                warn: (msg, ...args) => rpc(RPCMethod.Log, 'warn', msg, ...args),
+                error: (msg, ...args) => rpc(RPCMethod.Log, 'error', msg, ...args),
             },
             
             createWorker: () => { throw new Error("Nested workers not supported in isolation yet") },
@@ -152,7 +159,7 @@ async function run() {
             // wrappers
             network: {
                 fetch: async (input, init) => {
-                     const res = await rpc('network:fetch', input, init);
+                     const res = await rpc(RPCMethod.NetworkFetch, input, init);
                      // Reconstruct a subset of Response
                      return {
                          status: res.status,
@@ -189,7 +196,7 @@ async function run() {
                      const hookId = Math.random().toString(36).substring(7);
                      hookCallbacks.set(hookId, callback);
                      // We need to pass the filter source string
-                     rpc('hooks:register', 'onResolve', { 
+                     rpc(RPCMethod.HooksRegister, HookType.ON_RESOLVE, { 
                          filter: filter.source, 
                          pluginName, 
                          id: hookId,
@@ -199,7 +206,7 @@ async function run() {
                 onLoad: (filter: RegExp, callback: Function, options?: any) => {
                      const hookId = Math.random().toString(36).substring(7);
                      hookCallbacks.set(hookId, callback);
-                     rpc('hooks:register', 'onLoad', {
+                     rpc(RPCMethod.HooksRegister, HookType.ON_LOAD, {
                          filter: filter.source,
                          pluginName,
                          id: hookId,
@@ -214,7 +221,7 @@ async function run() {
         if (plugin.onLoad) {
             await plugin.onLoad(contextProxy);
             parentPort!.postMessage({ 
-                type: 'LOAD_SUCCESS', 
+                type: WorkerMessageType.LOAD_SUCCESS, 
                 metadata: {
                     name: plugin.name,
                     version: plugin.version,
@@ -228,7 +235,7 @@ async function run() {
         
         // Listen for START_UP signal to run onStarted
         parentPort!.on('message', async (msg: any) => {
-            if (msg.type === 'START_UP') {
+            if (msg.type === WorkerMessageType.START_UP) {
                 if (plugin && plugin.onStarted) {
                     try {
                         await plugin.onStarted();
@@ -242,7 +249,7 @@ async function run() {
     } catch (e) {
         const error = errorParser(e, `[Worker:${pluginName}] Error:`);
         console.error(error.message);
-        parentPort!.postMessage({ type: 'LOAD_ERROR', error: error.message });
+        parentPort!.postMessage({ type: WorkerMessageType.LOAD_ERROR, error: error.message });
     }
 }
 
