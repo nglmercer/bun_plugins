@@ -1,7 +1,7 @@
 
 import { RuleBuilder, RuleEngine, ActionRegistry, ExpressionEngine } from 'trigger_system/node';
-import { PluginManager } from '../src';
-import { TTSService } from './tts';
+import { PluginManager } from '../dist/index.js';
+import { TTSService } from './tts/service';
 import { EdgeTTSPlugin } from '../plugins/EdgeTTSPlugin';
 
 // --- Workflow Principal ---

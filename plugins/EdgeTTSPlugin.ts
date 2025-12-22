@@ -1,6 +1,6 @@
 
 import type { IPlugin, PluginContext } from "../src";
-import { TTSService } from "../examples/tts";
+import { TTSService } from "../examples/tts/service";
 
 class EdgeTTSProvider {
     name = "EdgeTTS";

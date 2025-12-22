@@ -2,7 +2,7 @@
 import { EventEmitter } from "node:events";
 import { readdir, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { watch } from "node:fs";
+import { watch, existsSync } from "node:fs";
 import { 
     type IPlugin, 
     type PluginContext, 
@@ -50,19 +50,15 @@ export class PluginManager extends EventEmitter {
     this.workerFactory = options?.workerFactory ?? ((url, opts) => new Worker(url, opts));
     
     // Resilient path detection
-    let defaultWorkerPath = join(import.meta.dir, "worker", "WorkerRunner.ts");
-    // If running from a bundle or compiled, try .js version
-    this.workerRunnerPath = options?.workerRunnerPath ?? defaultWorkerPath;
-    if (!Bun.file(defaultWorkerPath).exists()) {
-        const jsPath = defaultWorkerPath.replace(/\.ts$/, ".js");
-        const setPath = async () => {
-            const existFile = await Bun.file(jsPath).exists()
-            if (existFile) {
-                defaultWorkerPath = jsPath;
-            }
-            this.workerRunnerPath = defaultWorkerPath;
-        }
-        setPath();
+    const currentDir = import.meta.dir;
+    const tsWorkerPath = join(currentDir, "worker", "WorkerRunner.ts");
+    const jsWorkerPath = join(currentDir, "worker", "WorkerRunner.js");
+    
+    if (options?.workerRunnerPath) {
+        this.workerRunnerPath = options.workerRunnerPath;
+    } else {
+        // Prefer TS if it exists (development), fallback to JS (production/dist)
+        this.workerRunnerPath = existsSync(tsWorkerPath) ? tsWorkerPath : jsWorkerPath;
     }
 
     // Initialize Sub-Managers

@@ -91,17 +91,38 @@ async function run() {
         
         // Dynamic Import of the Plugin
         const module = await import(pluginPath);
-        // Find the plugin object (default export or named export compliant with IPlugin)
         
-        if (module.default && module.default.name) plugin = module.default;
-        else {
-             // Search for first exported object that looks like a plugin
-             const candidate = Object.values(module).find((exp: any) => exp && exp.name && exp.onLoad);
-             if (candidate) plugin = candidate as IPlugin;
+        // Find the plugin object (default export or named export compliant with IPlugin)
+        const findPlugin = (exp: any): any => {
+            if (!exp) return null;
+            // Case 1: Instance of IPlugin
+            if (exp.name && typeof exp.onLoad === 'function') return exp;
+            // Case 2: Class/Constructor of IPlugin
+            if (typeof exp === 'function' && exp.prototype) {
+                try {
+                    const instance = new exp();
+                    if (instance.name && typeof instance.onLoad === 'function') return instance;
+                } catch (e) {
+                    // Not a parameterless constructor or not a plugin
+                }
+            }
+            return null;
+        };
+
+        plugin = findPlugin(module.default);
+        if (!plugin) {
+             // Search for first exported object that looks like a plugin or a plugin class
+             for (const exp of Object.values(module)) {
+                 const candidate = findPlugin(exp);
+                 if (candidate) {
+                     plugin = candidate;
+                     break;
+                 }
+             }
         }
 
         if (!plugin) {
-            throw new Error(`[Worker:${pluginName}] No valid plugin found in ${pluginPath}`);
+            throw new Error(`[Worker:${pluginName}] No valid plugin found in ${pluginPath}. Ensure you export an instance or class that implements IPlugin.`);
         }
 
         // Send Manifest immediately after load for security context initialization in host
