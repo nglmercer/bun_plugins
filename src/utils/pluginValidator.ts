@@ -78,11 +78,15 @@ function validatePluginInstance(obj: unknown): ValidationResult {
     };
   }
 
-  // Cast to IPlugin (fill in missing optional methods if needed)
-  const plugin = result.data as IPlugin;
+  // Use the original object to preserve prototype and 'this' context,
+  // but we can use the parsed data to ensure defaults are applied if we want.
+  // For now, let's just return the original object casted to IPlugin.
+  const plugin = obj as IPlugin;
   
-  // Shim onUnload if missing (since we made it optional in schema but it is required in IPlugin interface usually, 
-  // though we can be lenient)
+  // Apply defaults/formatting from Zod if needed (optional)
+  if (!plugin.version && result.data.version) plugin.version = result.data.version;
+
+  // Shim onUnload if missing
   if (!plugin.onUnload) {
     plugin.onUnload = () => {};
   }
