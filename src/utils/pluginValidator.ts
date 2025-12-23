@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { IPlugin } from "../types";
 import { errorParser } from "../utils/errorParser";
 
-// Define the schemas with explicit return types to avoid exposing Zod internals
+// Internal schemas - NOT exported to avoid Zod type leakage
 const pluginSchemaDefinition = z.object({
   name: z.string().min(1, "Plugin name is required"),
   version: z.string().min(1, "Plugin version is required").default("1.0.0"),
@@ -26,20 +26,6 @@ const pluginSchemaDefinition = z.object({
   getSharedApi: z.function().optional(),
   setup: z.function().optional(),
 });
-
-// Export with explicit type annotation to prevent internal type exposure
-export const PluginSchema: z.ZodType<z.infer<typeof pluginSchemaDefinition>> = pluginSchemaDefinition;
-
-// We can have a stricter schema for the full IPlugin
-const strictPluginSchemaDefinition = z.object({
-  name: z.string(),
-  version: z.string(),
-  onLoad: z.function(),
-  onUnload: z.function(),
-});
-
-export const StrictPluginSchema: z.ZodType<z.infer<typeof strictPluginSchemaDefinition>> = strictPluginSchemaDefinition;
-
 
 export type ValidationResult = 
   | { valid: true; plugin: IPlugin }
@@ -76,7 +62,7 @@ export function validatePlugin(candidate: unknown): ValidationResult {
 }
 
 function validatePluginInstance(obj: unknown): ValidationResult {
-  const result = PluginSchema.safeParse(obj);
+  const result = pluginSchemaDefinition.safeParse(obj);
 
   if (!result.success) {
     return { 
