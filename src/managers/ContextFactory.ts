@@ -53,10 +53,10 @@ export function createPluginContext(
             warn: (msg, ...args) => console.warn(`[${plugin.name}] warn: ${msg}`, ...args),
             error: (msg, ...args) => console.error(`[${plugin.name}] error: ${msg}`, ...args),
         },
-        createWorker: (url, options) => {
+        createWorker: (url, options?) => {
             // Use the manager's worker factory to allow proper mocking in tests
             const workerFactory = manager.getWorkerFactory();
-            const w = workerFactory(url, options);
+            const w = workerFactory(url, options) as unknown as import("../types").BunWorker;
             
             // Auto-cleanup when worker closes
             w.addEventListener?.("close", () => {
@@ -80,7 +80,7 @@ export function createPluginContext(
                }
             });
             
-            w.addEventListener?.("error", (err: ErrorEvent) => {
+            w.addEventListener?.("error", (err: any) => {
                 console.error(`[${plugin.name}] Worker error:`, err.message); 
             });
 

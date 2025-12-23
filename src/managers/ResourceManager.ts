@@ -39,7 +39,7 @@ export class ResourceManager {
         let totalTimers = 0;
         let totalListeners = 0;
 
-        for (const res of this.resources.values()) {
+        for (const res of Array.from(this.resources.values())) {
             totalWorkers += res.workers.length;
             totalTimers += res.timers.length;
             totalListeners += res.eventListeners.length;

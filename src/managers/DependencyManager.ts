@@ -1,6 +1,6 @@
 
 import type { IPlugin } from "../types";
-import semver from "semver";
+import * as semver from "semver";
 
 export class DependencyManager {
     /**
@@ -48,12 +48,12 @@ export class DependencyManager {
         // Using Kahn's algorithm or similar.
         
         const inDegree = new Map<string, number>();
-        for (const name of pluginMap.keys()) inDegree.set(name, 0);
+        for (const name of Array.from(pluginMap.keys())) inDegree.set(name, 0);
 
         const adj = new Map<string, string[]>();
-        for (const name of pluginMap.keys()) adj.set(name, []);
+        for (const name of Array.from(pluginMap.keys())) adj.set(name, []);
 
-        for (const [pName, deps] of g.entries()) {
+        for (const [pName, deps] of Array.from(g.entries())) {
             for (const depName of deps) {
                 // depName -> pName
                 if (adj.has(depName)) {
@@ -64,7 +64,7 @@ export class DependencyManager {
         }
 
         const queue: string[] = [];
-        for (const [name, deg] of inDegree.entries()) {
+        for (const [name, deg] of Array.from(inDegree.entries())) {
             if (deg === 0) queue.push(name);
         }
 

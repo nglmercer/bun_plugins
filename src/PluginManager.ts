@@ -17,7 +17,7 @@ import {
 } from "./types";
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
-import semver from "semver";
+import * as semver from "semver";
 import { ResourceManager } from "./managers/ResourceManager";
 import { DependencyManager } from "./managers/DependencyManager";
 import { HooksManager } from "./managers/HooksManager";
@@ -268,7 +268,7 @@ export class PluginManager extends EventEmitter {
                             result = {
                                 status: response.status,
                                 statusText: response.statusText,
-                                headers: Object.fromEntries(response.headers.entries()),
+                                headers: Object.fromEntries((response.headers as any).entries()),
                                 body: await response.text() 
                             };
                         }
@@ -321,7 +321,7 @@ export class PluginManager extends EventEmitter {
                             await new Promise(r => setTimeout(r, 200));
                             worker.terminate();
                             // Clear pending hooks on unload
-                            for (const pending of pendingHooks.values()) {
+                            for (const pending of Array.from(pendingHooks.values())) {
                                 pending.reject(new Error("Plugin unloaded"));
                             }
                             pendingHooks.clear();
@@ -334,7 +334,7 @@ export class PluginManager extends EventEmitter {
                 else if (msg.type === WorkerMessageType.LOAD_ERROR) {
                     clearTimeout(timeoutId);
                     // Cleanup pending hooks on load error
-                    for (const pending of pendingHooks.values()) {
+                    for (const pending of Array.from(pendingHooks.values())) {
                         pending.reject(new Error(`Load error: ${msg.error}`));
                    }
                    pendingHooks.clear();
@@ -348,7 +348,7 @@ export class PluginManager extends EventEmitter {
                 clearTimeout(timeoutId);
                 console.error(`[Isolated:${pluginName}] Worker Error:`, err);
                 // Reject all pending hooks on crash
-                for (const pending of pendingHooks.values()) {
+                for (const pending of Array.from(pendingHooks.values())) {
                     pending.reject(new Error("Worker terminated unexpectedly"));
                 }
                 pendingHooks.clear();
@@ -361,7 +361,7 @@ export class PluginManager extends EventEmitter {
     const plugin = this.plugins.get(pluginName);
     if (!plugin) return;
 
-    for (const [name, p] of this.plugins.entries()) {
+    for (const [name, p] of Array.from(this.plugins.entries())) {
         if (p.dependencies && p.dependencies[pluginName]) {
             console.warn(`Warning: Plugin ${name} depends on ${pluginName} which is being unloaded.`);
         }
@@ -427,7 +427,8 @@ export class PluginManager extends EventEmitter {
               if (validation.valid) {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
               } else {
-                 console.warn(`Skipping invalid plugin in ${file}: ${validation.error}`);
+                 const errorMsg = (validation as any).error;
+                 console.warn(`Skipping invalid plugin in ${file}: ${errorMsg}`);
               }
             }
           } catch (err) {
@@ -437,7 +438,7 @@ export class PluginManager extends EventEmitter {
       }
 
       const pluginsToLoad: IPlugin[] = [];
-      for (const plugin of this.availablePlugins.values()) {
+      for (const plugin of Array.from(this.availablePlugins.values())) {
           if (!disabledPlugins.includes(plugin.name)) {
               pluginsToLoad.push(plugin);
           } else {
@@ -600,7 +601,7 @@ export class PluginManager extends EventEmitter {
 
   getPluginStatus(): Record<string, any> {
       const status: Record<string, any> = {};
-      for (const [name, plugin] of this.plugins) {
+      for (const [name, plugin] of Array.from(this.plugins)) {
           const resources = this.resources.get(name);
           status[name] = {
               version: plugin.version,

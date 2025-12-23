@@ -172,7 +172,7 @@ const server = serve<WebSocketData>({
         timestamp,
         method: req.method,
         url: req.url,
-        headers: Object.fromEntries(req.headers.entries()),
+        headers: Object.fromEntries((req.headers as any).entries()),
         contentType,
         body,
       });
