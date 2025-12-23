@@ -2,6 +2,7 @@
 import { describe, it, expect, mock, spyOn, afterEach, beforeEach } from "bun:test";
 import { PluginManager } from "../../src/PluginManager";
 import type { IPlugin, PluginBuilder, PluginContext } from "../../src/types";
+import { HookOrder } from "../../src/types";
 import { join } from "node:path";
 import { rm, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -91,7 +92,7 @@ describe("System Enhancements", () => {
                     build.onResolve(/test/, () => {
                         log.push("pre");
                         return null; // Continue
-                    }, { order: 'pre' });
+                    }, { order: HookOrder.PRE });
                 }
             };
 
@@ -117,7 +118,7 @@ describe("System Enhancements", () => {
                     build.onResolve(/test/, () => {
                         log.push("post");
                         return null; 
-                    }, { order: 'post' });
+                    }, { order: HookOrder.POST });
                 }
             };
 
@@ -140,7 +141,7 @@ describe("System Enhancements", () => {
                 setup: (build) => {
                     build.onResolve(/test/, () => {
                         return { path: "blocked-by-pre" };
-                    }, { order: 'pre' });
+                    }, { order: HookOrder.PRE });
                 }
             };
             

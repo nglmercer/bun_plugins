@@ -2,6 +2,7 @@
 import { describe, it, expect, mock, spyOn } from "bun:test";
 import { PluginManager } from "../../src/PluginManager";
 import type { IPlugin, PluginContext } from "../../src/types";
+import { PluginPermission } from "../../src/types";
 
 describe("Plugin Security & Permissions", () => {
 
@@ -16,7 +17,7 @@ describe("Plugin Security & Permissions", () => {
         const plugin: IPlugin = {
             name: "net-plugin",
             version: "1.0.0",
-            permissions: ["network"],
+            permissions: [PluginPermission.Network],
             onLoad: async (ctx: PluginContext) => {
                 await ctx.network.fetch("https://example.com");
             },
@@ -57,7 +58,7 @@ describe("Plugin Security & Permissions", () => {
         const plugin: IPlugin = {
             name: "env-plugin",
             version: "1.0.0",
-            permissions: ["env"],
+            permissions: [PluginPermission.Env],
             onLoad: (ctx: PluginContext) => {
                  expect(ctx.env.TEST_VAR).toBe("secret");
             },
@@ -94,7 +95,7 @@ describe("Plugin Security & Permissions", () => {
         const plugin: IPlugin = {
             name: "env-mod-plugin",
             version: "1.0.0",
-            permissions: ["env"],
+            permissions: [PluginPermission.Env],
             onLoad: (ctx: PluginContext) => {
                 // @ts-ignore
                 ctx.env.NEW_VAR = "hacker";

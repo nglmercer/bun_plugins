@@ -11,7 +11,7 @@
     // Bundler mode
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": false,
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": false,
     "noEmit": false,
     "outDir": "dist",
     "declaration": true,
@@ -29,6 +29,6 @@
 
     "types": ["bun"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "tests", "examples", "plugins"]
+  "include": ["src/**/*", "plugins/**/*", "tests/**/*", "examples/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

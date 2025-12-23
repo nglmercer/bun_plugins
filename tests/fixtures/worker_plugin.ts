@@ -1,10 +1,10 @@
 
-import { type IPlugin, type PluginContext } from "../../src/types";
+import { type IPlugin, type PluginContext, PluginPermission } from "../../src/types";
 
 const plugin: IPlugin = {
     name: "worker-plugin",
     version: "1.0.0",
-    permissions: ["env", "network", "filesystem"], 
+    permissions: [PluginPermission.Env, PluginPermission.Network, PluginPermission.Filesystem], 
     onLoad: async (ctx: PluginContext) => {
         ctx.log.info("Worker plugin loaded");
         

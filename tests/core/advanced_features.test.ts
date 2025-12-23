@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from "bun:test";
 import { PluginManager } from "../../src/PluginManager";
 import type { IPlugin, PluginContext } from "../../src/types";
+import { PluginPermission } from "../../src/types";
 import { join } from "node:path";
 import { rmdir } from "node:fs/promises";
 
@@ -102,7 +103,7 @@ describe("Advanced Plugin Features", () => {
              const plugin: IPlugin = {
                 name: "net-plugin",
                 version: "1.0.0",
-                permissions: ["network"],
+                permissions: [PluginPermission.Network],
                 allowedDomains: ["example.com"],
                 onLoad: async (ctx) => {
                     // Allowed
@@ -170,7 +171,7 @@ describe("Advanced Plugin Features", () => {
             const plugin: IPlugin = {
                 name: "env-plugin",
                 version: "1.0.0",
-                permissions: ["env"],
+                permissions: [PluginPermission.Env],
                 onLoad: (ctx) => {
                     const val = ctx.env.PATH; // Read ok
                     expect(val).toBeDefined();
