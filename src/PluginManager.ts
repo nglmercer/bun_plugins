@@ -10,6 +10,7 @@ import {
     type BunWorkerOptions as WorkerOptions,
     type OnResolveArgs, 
     type OnLoadArgs,
+    type IPluginManager,
     WorkerMessageType,
     PluginPermission,
     RPCMethod,
@@ -25,7 +26,7 @@ import { createPluginContext } from "./managers/ContextFactory";
 import { errorParser } from "./utils/errorParser";
 import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "./utils/security";
 
-export class PluginManager extends EventEmitter {
+export class PluginManager extends EventEmitter implements IPluginManager {
   private plugins: Map<string, IPlugin> = new Map();
   private availablePlugins: Map<string, IPlugin> = new Map();
   
@@ -192,7 +193,7 @@ export class PluginManager extends EventEmitter {
                 return true;
            };
            
-           const rpcHandler = async (msg: any) => {
+           const rpcHandler = async (msg: Record<string, any>) => {
                if (msg.type === WorkerMessageType.RPC_CALL) {
                    const { id, method, args } = msg;
                    try {
@@ -218,7 +219,7 @@ export class PluginManager extends EventEmitter {
                             const [ type, { filter, id: hookId, options } ] = args;
                             const filterRegExp = new RegExp(filter);
                             
-                            const proxyCallback = (hookArgs: any) => {
+                            const proxyCallback = (hookArgs: Record<string, any>) => {
                                 return new Promise<any>((resolve, reject) => {
                                     const requestId = Math.random().toString(36).substring(7);
                                     pendingHooks.set(requestId, { resolve, reject });
@@ -265,10 +266,12 @@ export class PluginManager extends EventEmitter {
                             checkPermission(PluginPermission.Network, urlStr);
                             
                             const response = await fetch(input, init);
+                            const responseHeaders: Record<string, string> = {};
+                            response.headers.forEach((v, k) => { responseHeaders[k] = v; });
                             result = {
                                 status: response.status,
                                 statusText: response.statusText,
-                                headers: Object.fromEntries((response.headers as any).entries()),
+                                headers: responseHeaders,
                                 body: await response.text() 
                             };
                         }
@@ -393,10 +396,22 @@ export class PluginManager extends EventEmitter {
     return super.emit(eventName, ...args);
   }
 
-  override on<K extends keyof AppEvents>(eventName: K, listener: (payload: AppEvents[K]) => void): this;
+  override on<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
   override on(eventName: string | symbol, listener: (...args: any[]) => void): this;
   override on(eventName: string | symbol, listener: (...args: any[]) => void): this {
     return super.on(eventName, listener);
+  }
+
+  override once<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
+  override once(eventName: string | symbol, listener: (...args: any[]) => void): this;
+  override once(eventName: string | symbol, listener: (...args: any[]) => void): this {
+    return super.once(eventName, listener);
+  }
+
+  override off<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
+  override off(eventName: string | symbol, listener: (...args: any[]) => void): this;
+  override off(eventName: string | symbol, listener: (...args: any[]) => void): this {
+    return super.off(eventName, listener);
   }
 
   async loadPluginsFromDirectory(directoryPath: string = join(process.cwd(), "plugins")): Promise<void> {
@@ -427,7 +442,7 @@ export class PluginManager extends EventEmitter {
               if (validation.valid) {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
               } else {
-                 const errorMsg = (validation as any).error;
+                 const errorMsg = (validation).error;
                  console.warn(`Skipping invalid plugin in ${file}: ${errorMsg}`);
               }
             }
@@ -578,7 +593,7 @@ export class PluginManager extends EventEmitter {
       watch(pluginDir, { recursive: true }, async (event, filename) => {
           if (!filename || (!filename.endsWith(".ts") && !filename.endsWith(".js"))) return;
           
-          if (this.hotReloadTimer) clearTimeout(this.hotReloadTimer as any);
+          if (this.hotReloadTimer) clearTimeout(this.hotReloadTimer);
           
           this.hotReloadTimer = setTimeout(async () => {
               console.log(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);

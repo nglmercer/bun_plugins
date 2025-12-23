@@ -32,14 +32,14 @@ export function createPluginContext(
         // Legacy support
         emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => manager.emit(event, payload),
         on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => {
-            manager.on(event, callback);
+            manager.on(event as string, callback);
             pluginResources.eventListeners.push({ event: event as string, listener: callback });
         },
         
         events: {
             emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => manager.emit(event, payload),
             on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => {
-                manager.on(event, callback);
+                manager.on(event as string, callback);
                 pluginResources.eventListeners.push({ event: event as string, listener: callback });
             }
         },
@@ -98,11 +98,11 @@ export function createPluginContext(
              return id;
         },
         clearTimeout: (id: number | Timer) => {
-             clearTimeout(id as any);
+             clearTimeout(id);
              // Removing from list logic omitted for speed, cleanup handles remainder
         },
         clearInterval: (id: number | Timer) => {
-             clearInterval(id as any);
+             clearInterval(id);
         },
         network: {
             fetch: (input, init) => {

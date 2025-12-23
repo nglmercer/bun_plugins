@@ -27,7 +27,7 @@ export class ResourceManager {
             }
             if (eventEmitter) {
                 for (const listener of res.eventListeners) {
-                    eventEmitter.off(listener.event, listener.listener as any);
+                    eventEmitter.off(listener.event, listener.listener);
                 }
             }
             this.resources.delete(pluginName);

@@ -2,7 +2,8 @@
 import { parentPort, workerData } from "worker_threads";
 import { 
     type IPlugin, 
-    type PluginContext, 
+    type PluginContext,
+    type IPluginManager,
     WorkerMessageType, 
     PluginPermission, 
     RPCMethod,
@@ -140,7 +141,7 @@ async function run() {
 
         // Create Proxy Context
         const contextProxy: PluginContext = {
-            manager: {} as any, // Manager is not accessible remotely directly
+            manager: {} as IPluginManager, // Manager is not accessible remotely directly
             config: plugin.defaultConfig || {}, // Initial config (todo: fetch actual valid config)
             
             storage: {

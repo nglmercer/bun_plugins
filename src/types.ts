@@ -1,5 +1,5 @@
 import { z } from "zod";
-
+//import { }
 export enum WorkerMessageType {
     RPC_CALL = 'RPC_CALL',
     HOOK_CALL = 'HOOK_CALL',
@@ -78,6 +78,31 @@ export interface Logger {
     error(msg: string, ...args: any[]): void;
 }
 
+export interface IPluginManager {
+  register(plugin: IPlugin): Promise<void>;
+  registerIsolated(pluginPath: string, pluginName: string): Promise<void>;
+  unregister(pluginName: string): Promise<void>;
+  getPlugin(name: string): IPlugin | undefined;
+  listPlugins(): string[];
+  loadPluginsFromDirectory(directoryPath?: string): Promise<void>;
+  disablePlugin(name: string): Promise<void>;
+  enablePlugin(name: string): Promise<void>;
+  reloadPlugin(name: string): Promise<void>;
+  runOnResolve(args: OnResolveArgs): Promise<any>;
+  runOnLoad(args: OnLoadArgs): Promise<any>;
+  toBunPlugin(): any;
+  enableHotReload(pluginDir: string): void;
+  getWorkerFactory(): (url: string | URL, options?: BunWorkerOptions) => Worker;
+  getMetrics(): any;
+  getPluginStatus(): Record<string, any>;
+  
+  // EventEmitter methods
+  emit<K extends keyof AppEvents>(eventName: K, payload: AppEvents[K]): boolean;
+  on<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
+  once<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
+  off<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
+}
+
 export interface PluginContext {
   // Legacy/Direct event methods
   emit<K extends keyof AppEvents>(event: K, payload: AppEvents[K]): void;
@@ -91,7 +116,7 @@ export interface PluginContext {
 
   storage: IPluginStorage;
   config: Record<string, any>;
-  manager: any; 
+  manager: IPluginManager; 
   
   // Access to other plugins' shared APIs
   getPlugin(name: string): unknown | undefined;
