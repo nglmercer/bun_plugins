@@ -1,17 +1,16 @@
-import { LoggerAdapter } from "./LoggerAdapter";
-import { ConsoleLoggerAdapter, PinoLoggerAdapter, NoopLoggerAdapter } from "./LoggerAdapter";
-import { PinoLogger } from "./LoggerAdapter";
+import { Logger } from "../types";
+import { SimpleLoggerAdapter, ConsoleLogger, NoopLogger } from "./LoggerAdapter";
 
 /**
- * Logger factory for creating and managing logger instances
+ * Simple logger factory for creating and managing logger instances
  */
 export class LoggerFactory {
   private static instance: LoggerFactory;
-  private defaultLogger: LoggerAdapter;
-  private loggers: Map<string, LoggerAdapter> = new Map();
+  private defaultLogger: Logger;
+  private pluginLoggers: Map<string, Logger> = new Map();
 
   private constructor() {
-    this.defaultLogger = new ConsoleLoggerAdapter();
+    this.defaultLogger = new ConsoleLogger();
   }
 
   /**
@@ -25,78 +24,81 @@ export class LoggerFactory {
   }
 
   /**
-   * Set the default logger adapter
+   * Set the default logger (can be any custom logger)
    */
-  setDefaultLogger(logger: LoggerAdapter): void {
+  setDefaultLogger(logger: Logger): void {
     this.defaultLogger = logger;
   }
 
   /**
-   * Get the default logger adapter
+   * Get the default logger
    */
-  getDefaultLogger(): LoggerAdapter {
+  getDefaultLogger(): Logger {
     return this.defaultLogger;
   }
 
   /**
-   * Create a logger for a specific plugin
+   * Create a logger for a specific plugin with context
    */
-  createLogger(pluginName: string): LoggerAdapter {
-    const logger = this.defaultLogger.child(pluginName);
-    this.loggers.set(pluginName, logger);
+  createLogger(pluginName: string): Logger {
+    const logger = this.defaultLogger.child ? 
+      this.defaultLogger.child(pluginName) : 
+      new SimpleLoggerAdapter(this.defaultLogger, pluginName);
+    
+    this.pluginLoggers.set(pluginName, logger);
     return logger;
   }
 
   /**
    * Get a logger for a specific plugin
    */
-  getLogger(pluginName: string): LoggerAdapter {
-    if (!this.loggers.has(pluginName)) {
+  getLogger(pluginName: string): Logger {
+    if (!this.pluginLoggers.has(pluginName)) {
       return this.createLogger(pluginName);
     }
-    return this.loggers.get(pluginName)!;
-  }
-
-  /**
-   * Remove a logger for a specific plugin
-   */
-  removeLogger(pluginName: string): void {
-    this.loggers.delete(pluginName);
-  }
-
-  /**
-   * Create a console logger adapter
-   */
-  createConsoleLogger(): ConsoleLoggerAdapter {
-    return new ConsoleLoggerAdapter();
-  }
-
-  /**
-   * Create a pino logger adapter
-   */
-  createPinoLogger(pinoLogger: PinoLogger): PinoLoggerAdapter {
-    return new PinoLoggerAdapter(pinoLogger);
-  }
-
-  /**
-   * Create a no-op logger adapter
-   */
-  createNoopLogger(): NoopLoggerAdapter {
-    return new NoopLoggerAdapter();
+    return this.pluginLoggers.get(pluginName)!;
   }
 
   /**
    * Set a custom logger for a specific plugin
    */
-  setPluginLogger(pluginName: string, logger: LoggerAdapter): void {
-    this.loggers.set(pluginName, logger);
+  setPluginLogger(pluginName: string, logger: Logger): void {
+    this.pluginLoggers.set(pluginName, logger);
   }
 
   /**
-   * Clear all plugin-specific loggers
+   * Remove a plugin logger
+   */
+  removeLogger(pluginName: string): void {
+    this.pluginLoggers.delete(pluginName);
+  }
+
+  /**
+   * Clear all plugin loggers
    */
   clearPluginLoggers(): void {
-    this.loggers.clear();
+    this.pluginLoggers.clear();
+  }
+
+  /**
+   * Create a console logger
+   */
+  createConsoleLogger(): ConsoleLogger {
+    return new ConsoleLogger();
+  }
+
+  /**
+   * Create a no-op logger
+   */
+  createNoopLogger(): NoopLogger {
+    return new NoopLogger();
+  }
+
+  /**
+   * Wrap any custom logger with our adapter
+   */
+  wrapLogger(logger: Logger, context?: string): SimpleLoggerAdapter {
+    return new SimpleLoggerAdapter(logger, context);
   }
 }
 
