@@ -118,7 +118,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
     // 5. Setup Hooks with Performance Monitoring (Delegated to HooksManager via Builder)
     if (plugin.setup) {
         try {
-            await plugin.setup(this.hooksManager.getBuilder(plugin.name));
+            await plugin.setup(this.hooksManager.getBuilder(plugin.name, config));
         } catch (e) {
              console.error(`Error during setup for ${plugin.name}:`, e);
              throw errorParser(e, `Error during setup for ${plugin.name}`);
@@ -146,6 +146,9 @@ export class PluginManager extends EventEmitter implements IPluginManager {
               console.error(`Error in onStarted for ${plugin.name}:`, e);
           }
       }
+
+      // 7. Trigger onStart hooks registered via setup()
+      await this.hooksManager.runOnStart();
     } catch (error) {
       console.error(`Failed to load plugin ${plugin.name}:`, error);
       // Cleanup resources directly since plugin is not in this.plugins yet
@@ -240,6 +243,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                                  this.hooksManager.registerOnResolve(filterRegExp, proxyCallback, pluginName, options?.order);
                              } else if (type === HookType.ON_LOAD) {
                                  this.hooksManager.registerOnLoad(filterRegExp, proxyCallback, pluginName, options?.order);
+                             } else if (type === HookType.ON_START) {
+                                 this.hooksManager.registerOnStart(() => proxyCallback({}), pluginName);
                              }
                             result = true;
                        }
@@ -466,7 +471,9 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
         if (fullPath) {
           try {
-            const module = await import(fullPath);
+            // Use cache-busting for hot reload
+            const query = `?update=${Date.now()}`;
+            const module = await import(fullPath + query);
             for (const key in module) {
               const ExportedItem = module[key];
               const validation = validatePlugin(ExportedItem);
@@ -511,12 +518,16 @@ export class PluginManager extends EventEmitter implements IPluginManager {
               if (!dependenciesOk) continue;
 
               try {
-                  if (!this.plugins.has(plugin.name)) { 
+                  if (this.plugins.has(plugin.name)) { 
+                      console.log(`Updating plugin: ${plugin.name}`);
+                      await this.reloadPlugin(plugin.name);
+                      loadedPlugins.push(plugin);
+                  } else {
                       await this.register(plugin);
                       loadedPlugins.push(plugin);
                   }
               } catch (e) {
-                   console.error(`Failed to load ${plugin.name}:`, e);
+                   console.error(`Failed to load/update ${plugin.name}:`, e);
               }
           }
 
@@ -566,14 +577,30 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   }
 
   async reloadPlugin(name: string): Promise<void> {
-    const plugin = this.plugins.get(name);
-    if (plugin) {
+    const oldPlugin = this.plugins.get(name);
+    if (oldPlugin) {
         console.log(`Reloading plugin ${name}...`);
         await this.unregister(name);
     }
+    
     const definition = this.availablePlugins.get(name);
     if (definition) {
         await this.register(definition);
+        const newPlugin = this.plugins.get(name);
+        
+        // If the new version has onReload, call it
+        if (newPlugin && newPlugin.onReload) {
+            // We need a context for onReload as well
+            const storage = new JsonPluginStorage(this.storageRoot, name);
+            const context = createPluginContext(this, newPlugin, this.resources, storage);
+            try {
+                await newPlugin.onReload(context);
+            } catch (e) {
+                console.error(`Error in onReload for ${name}:`, e);
+            }
+        }
+        
+        this.emit("plugin:updated", { name: definition.name, version: definition.version });
     } else {
         throw new Error(`Plugin ${name} not found in available plugins.`);
     }
@@ -613,6 +640,11 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   async runOnLoad(args: OnLoadArgs) {
       return this.hooksManager.runOnLoad(args);
   }
+
+  // Bun-like Aliases
+  async use(plugin: IPlugin) { return this.register(plugin); }
+  async plugin(plugin: IPlugin) { return this.register(plugin); }
+  async remove(pluginName: string) { return this.unregister(pluginName); }
 
   toBunPlugin() {
       return this.hooksManager.toBunPlugin();

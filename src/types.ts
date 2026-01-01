@@ -37,7 +37,8 @@ export enum RPCMethod {
 
 export enum HookType {
     ON_RESOLVE = 'onResolve',
-    ON_LOAD = 'onLoad'
+    ON_LOAD = 'onLoad',
+    ON_START = 'onStart'
 }
 
 export enum HookOrder {
@@ -61,7 +62,7 @@ export interface HookRegistry<T> {
 // Users can use declaration merging to extend this interface
 export interface AppEvents {
   "log": { level: "info" | "error" | "warn"; message: string };
-  "cmd:input": { command: string; args: string[] };
+  "plugin:updated": { name: string; version: string };
   [key: string]: any; // Allow loose typing for flexibility if needed, or remove for strictness
 }
 
@@ -99,6 +100,11 @@ export interface IPluginManager {
   getMetrics(): any;
   getPluginStatus(): Record<string, any>;
   
+  // Bun-like Aliases
+  use(plugin: IPlugin): Promise<void>;
+  plugin(plugin: IPlugin): Promise<void>;
+  remove(pluginName: string): Promise<void>;
+
   // EventEmitter methods
   emit<K extends keyof AppEvents>(eventName: K, payload: AppEvents[K]): boolean;
   on<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
@@ -195,6 +201,7 @@ export interface IPlugin {
   onLoad(context: PluginContext): Promise<void> | void;
   onStarted?: () => Promise<void> | void; // New Lifecycle Hook
   onUnload(): Promise<void> | void;
+  onReload?: (context: PluginContext) => Promise<void> | void;
   
   // Method to expose a shared API to other plugins
   getSharedApi?: () => unknown;
@@ -212,6 +219,8 @@ export type OnLoadResult = { contents: string; loader?: string } | undefined | n
 export type OnLoadCallback = (args: OnLoadArgs) => OnLoadResult | Promise<OnLoadResult>;
 
 export interface PluginBuilder {
-  onResolve(filter: RegExp, callback: OnResolveCallback, options?: { order?: HookOrder }): void;
-  onLoad(filter: RegExp, callback: OnLoadCallback, options?: { order?: HookOrder }): void;
+  onStart(callback: () => void | Promise<void>): void;
+  onResolve(filter: RegExp | { filter: RegExp; namespace?: string }, callback: OnResolveCallback, options?: { order?: HookOrder }): void;
+  onLoad(filter: RegExp | { filter: RegExp; namespace?: string }, callback: OnLoadCallback, options?: { order?: HookOrder }): void;
+  config: Record<string, any>;
 }

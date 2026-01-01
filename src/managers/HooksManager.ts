@@ -14,6 +14,7 @@ import type { BunPlugin } from "bun";
 export class HooksManager {
     private onResolveHooks: HookRegistry<OnResolveCallback>[] = [];
     private onLoadHooks: HookRegistry<OnLoadCallback>[] = [];
+    private onStartHooks: { callback: () => void | Promise<void>, pluginName: string }[] = [];
 
     registerOnResolve(filter: RegExp, callback: OnResolveCallback, pluginName: string, order?: HookOrder) {
         // Performance wrapper could be applied here or by caller.
@@ -25,13 +26,31 @@ export class HooksManager {
         this.onLoadHooks.push({ filter, callback, pluginName, order });
     }
 
+    registerOnStart(callback: () => void | Promise<void>, pluginName: string) {
+        this.onStartHooks.push({ callback, pluginName });
+    }
+
     getHookCount(type: HookType): number {
-        return type === HookType.ON_RESOLVE ? this.onResolveHooks.length : this.onLoadHooks.length;
+        if (type === HookType.ON_RESOLVE) return this.onResolveHooks.length;
+        if (type === HookType.ON_LOAD) return this.onLoadHooks.length;
+        if (type === HookType.ON_START) return this.onStartHooks.length;
+        return 0;
     }
 
     cleanup(pluginName: string) {
         this.onResolveHooks = this.onResolveHooks.filter(h => h.pluginName !== pluginName);
         this.onLoadHooks = this.onLoadHooks.filter(h => h.pluginName !== pluginName);
+        this.onStartHooks = this.onStartHooks.filter(h => h.pluginName !== pluginName);
+    }
+
+    async runOnStart() {
+        for (const hook of this.onStartHooks) {
+            try {
+                await hook.callback();
+            } catch (e) {
+                console.error(`Error in onStart hook from ${hook.pluginName}:`, e);
+            }
+        }
     }
 
     async runOnResolve(args: OnResolveArgs): Promise<{ path: string; namespace?: string } | null> {
@@ -85,9 +104,14 @@ export class HooksManager {
         return currentResult;
     }
 
-    getBuilder(pluginName: string): PluginBuilder {
+    getBuilder(pluginName: string, config: Record<string, any>): PluginBuilder {
         return {
-            onResolve: (filter, callback, options) => {
+            config,
+            onStart: (callback: () => void | Promise<void>) => {
+                this.registerOnStart(callback, pluginName);
+            },
+            onResolve: (filterOrConfig: RegExp | { filter: RegExp; namespace?: string }, callback: OnResolveCallback, options?: { order?: HookOrder }) => {
+                const filter = filterOrConfig instanceof RegExp ? filterOrConfig : filterOrConfig.filter;
                 const perfCallback: OnResolveCallback = async (args) => {
                     const start = performance.now();
                     const res = await callback(args);
@@ -97,7 +121,8 @@ export class HooksManager {
                 };
                 this.registerOnResolve(filter, perfCallback, pluginName, options?.order);
             },
-            onLoad: (filter, callback, options) => {
+            onLoad: (filterOrConfig: RegExp | { filter: RegExp; namespace?: string }, callback: OnLoadCallback, options?: { order?: HookOrder }) => {
+                const filter = filterOrConfig instanceof RegExp ? filterOrConfig : filterOrConfig.filter;
                 const perfCallback: OnLoadCallback = async (args) => {
                     const start = performance.now();
                     const res = await callback(args);
@@ -107,7 +132,7 @@ export class HooksManager {
                 };
                 this.registerOnLoad(filter, perfCallback, pluginName, options?.order);
             }
-        };
+        } as PluginBuilder;
     }
 
     toBunPlugin(): BunPlugin {

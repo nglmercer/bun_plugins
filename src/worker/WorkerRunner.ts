@@ -4,6 +4,7 @@ import {
     type IPlugin, 
     type PluginContext,
     type IPluginManager,
+    type PluginBuilder,
     WorkerMessageType, 
     PluginPermission, 
     RPCMethod,
@@ -222,11 +223,21 @@ async function run() {
 
         // Run setup (Hooks)
         if (plugin.setup) {
-             const builderVal = {
-                 onResolve: (filter: RegExp, callback: Function, options?: any) => {
+             const builderVal: PluginBuilder = {
+                 config: currentConfig,
+                 onStart: (callback: () => void | Promise<void>) => {
                      const hookId = Math.random().toString(36).substring(7);
                      hookCallbacks.set(hookId, callback);
-                     // We need to pass the filter source string
+                     rpc(RPCMethod.HooksRegister, HookType.ON_START, {
+                         filter: /.*/.source,
+                         pluginName,
+                         id: hookId
+                     });
+                 },
+                 onResolve: (filterOrConfig: RegExp | { filter: RegExp; namespace?: string }, callback: any, options?: any) => {
+                     const filter = filterOrConfig instanceof RegExp ? filterOrConfig : filterOrConfig.filter;
+                     const hookId = Math.random().toString(36).substring(7);
+                     hookCallbacks.set(hookId, callback);
                      rpc(RPCMethod.HooksRegister, HookType.ON_RESOLVE, { 
                          filter: filter.source, 
                          pluginName, 
@@ -234,7 +245,8 @@ async function run() {
                          options
                      });
                  },
-                onLoad: (filter: RegExp, callback: Function, options?: any) => {
+                onLoad: (filterOrConfig: RegExp | { filter: RegExp; namespace?: string }, callback: any, options?: any) => {
+                     const filter = filterOrConfig instanceof RegExp ? filterOrConfig : filterOrConfig.filter;
                      const hookId = Math.random().toString(36).substring(7);
                      hookCallbacks.set(hookId, callback);
                      rpc(RPCMethod.HooksRegister, HookType.ON_LOAD, {
