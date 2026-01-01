@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { PluginManager } from "../../src/PluginManager";
 import { ActionRegistryPlugin, MathActionsPlugin, TextActionsPlugin } from "../../examples/action-registry-example";
-
+import { ActionPluginDefinition, } from "../../examples/shared/plugin-builder";
 describe("Action Registry Pattern", () => {
   it("should allow plugins to register and execute actions through shared API", async () => {
     const manager = new PluginManager();

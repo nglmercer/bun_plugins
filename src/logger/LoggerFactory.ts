@@ -1,5 +1,5 @@
 import { Logger } from "../types";
-import { SimpleLoggerAdapter, ConsoleLogger, NoopLogger } from "./LoggerAdapter";
+import { SimpleLoggerAdapter, ConsoleLogger, NoopLogger, ColorfulConsoleLogger } from "./LoggerAdapter";
 
 /**
  * Simple logger factory for creating and managing logger instances
@@ -10,7 +10,7 @@ export class LoggerFactory {
   private pluginLoggers: Map<string, Logger> = new Map();
 
   private constructor() {
-    this.defaultLogger = new ConsoleLogger();
+    this.defaultLogger = new ColorfulConsoleLogger();
   }
 
   /**
@@ -83,8 +83,24 @@ export class LoggerFactory {
   /**
    * Create a console logger
    */
-  createConsoleLogger(): ConsoleLogger {
-    return new ConsoleLogger();
+  createConsoleLogger(options?: {
+    useColors?: boolean;
+    timestampFormat?: 'none' | 'iso' | 'time';
+  }): ConsoleLogger {
+    return new ConsoleLogger(options);
+  }
+
+  /**
+   * Create a colorful console logger with enhanced formatting
+   */
+  createColorfulConsoleLogger(options?: {
+    useColors?: boolean;
+    timestampFormat?: 'none' | 'iso' | 'time';
+    levelColors?: Record<string, string>;
+    contextColor?: string;
+    showEmoji?: boolean;
+  }): ColorfulConsoleLogger {
+    return new ColorfulConsoleLogger(options);
   }
 
   /**

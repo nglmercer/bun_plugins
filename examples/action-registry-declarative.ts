@@ -63,16 +63,16 @@ interface TestCase {
 // Demo runner with declarative test cases
 const runActionTests = async (registry: ActionRegistry) => {
   const testCases = [
-    { category: "🔢 Math", tests: [
+    { category: "Math", tests: [
       { action: "sum", args: [5, 3], expected: 8 },
       { action: "multiply", args: [4, 7], expected: 28 },
       { action: "power", args: [2, 8], expected: 256 }
     ] as TestCase[]},
-    { category: "📝 Text", tests: [
+    { category: "Text", tests: [
       { action: "uppercase", args: ["hello world"], expected: "HELLO WORLD" },
       { action: "reverse", args: ["javascript"], expected: "tpircsavaj" }
     ] as TestCase[]},
-    { category: "🛠️ Utility", tests: [
+    { category: "Utility", tests: [
       { action: "timestamp", args: [], validator: (result: number) => result > 0 }
     ] as TestCase[]}
   ];
@@ -88,7 +88,7 @@ const runActionTests = async (registry: ActionRegistry) => {
           console.log(`  ${test.action}() = ${test.validator(result) ? '✓' : '✗'}`);
         }
       } catch (error) {
-        console.error(`  ❌ ${test.action} failed:`, error);
+        console.error(`  ${test.action} failed:`, error);
       }
     }
   }
@@ -117,22 +117,22 @@ const demonstrateDeclarativeActionRegistry = async () => {
   }
   const registry = registryPluginInstance.getSharedApi() as ActionRegistry;
   
-  console.log("\n📋 Available Actions:");
+  console.log("\nAvailable Actions:");
   registry.list().forEach(action => console.log(`  - ${action}`));
   
   // Run tests
   await runActionTests(registry);
   
   // Error handling demo
-  console.log("\n❌ Error Handling:");
+  console.log("\nError Handling:");
   try {
     registry.execute("non-existent-action");
   } catch (error) {
-    console.log(`  ✓ Caught error: ${(error as Error).message}`);
+    console.log(`  Caught error: ${(error as Error).message}`);
   }
   
   // Plugin info
-  console.log("\n🔍 Plugin Information:");
+  console.log("\nPlugin Information:");
   ["math-actions", "text-actions", "utility-actions"].forEach(pluginName => {
     const plugin = manager.getPlugin(pluginName);
     if (plugin && plugin.getSharedApi) {
@@ -149,11 +149,11 @@ const demonstrateDynamicLoading = async () => {
   const { join } = await import("node:path");
   const manager = new PluginManager();
   
-  console.log("\n📂 Loading plugins dynamically from directory...");
+  console.log("\nLoading plugins dynamically from directory...");
   await manager.loadPluginsFromDirectory(join(process.cwd(), "plugins"));
   
   const loaded = manager.listPlugins();
-  console.log(`✅ Loaded ${loaded.length} plugins: ${loaded.join(", ")}`);
+  console.log(`Loaded ${loaded.length} plugins: ${loaded.join(", ")}`);
 };
 
 // Export for use

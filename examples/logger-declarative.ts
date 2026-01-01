@@ -9,26 +9,48 @@ import {
   logger,
   ConsoleLogger,
   NoopLogger,
-  SimpleLoggerAdapter
+  SimpleLoggerAdapter,
+  ColorfulConsoleLogger
 } from "../src";
 
 // Logger configuration definitions
 interface LoggerConfig {
-  type: 'console' | 'pino' | 'noop';
+  type: 'console' | 'colorful' | 'pino' | 'noop';
   context?: string;
   level?: string;
   format?: 'simple' | 'json' | 'colored';
+  useColors?: boolean;
+  timestampFormat?: 'none' | 'iso' | 'time';
+  showEmoji?: boolean;
+  levelColors?: Record<string, string>;
+  contextColor?: string;
 }
 
 // Declarative logger factory
 const createLogger = (config: LoggerConfig) => {
   switch (config.type) {
     case 'console':
-      const consoleLogger = new ConsoleLogger();
+      const consoleLogger = new ConsoleLogger({
+        useColors: config.useColors ?? false,
+        timestampFormat: config.timestampFormat ?? 'none'
+      });
       if (config.context) {
         return new SimpleLoggerAdapter(consoleLogger, config.context);
       }
       return consoleLogger;
+      
+    case 'colorful':
+      const colorfulLogger = new ColorfulConsoleLogger({
+        useColors: config.useColors ?? true,
+        timestampFormat: config.timestampFormat ?? 'none',
+        levelColors: config.levelColors,
+        contextColor: config.contextColor,
+        showEmoji: config.showEmoji ?? true
+      });
+      if (config.context) {
+        return colorfulLogger.child(config.context);
+      }
+      return colorfulLogger;
       
     case 'pino':
       // Simulated Pino logger for demonstration
@@ -68,6 +90,40 @@ const loggerScenarios = [
     }
   },
   {
+    name: "Colorful Console Logger",
+    config: {
+      type: 'colorful' as const,
+      context: 'ColorfulApp',
+      timestampFormat: 'time' as const,
+      showEmoji: true
+    },
+    demo: (log: any) => {
+      log.info("System initialized with colors");
+      log.warn("Performance degradation detected");
+      log.error("Critical system failure");
+      log.debug("Debug information available");
+    }
+  },
+  {
+    name: "Custom Color Theme Logger",
+    config: {
+      type: 'colorful' as const,
+      levelColors: {
+        info: '#00FF00',    // Bright green
+        warn: '#FFA500',    // Orange
+        error: '#FF1493',   // Deep pink
+        debug: '#00CED1'    // Dark turquoise
+      },
+      contextColor: '#FFD700', // Gold
+      showEmoji: true
+    },
+    demo: (log: any) => {
+      log.info("Custom themed info message");
+      log.warn("Custom themed warning");
+      log.error("Custom themed error");
+    }
+  },
+  {
     name: "Pino-style Logger",
     config: { type: 'pino' as const },
     demo: (log: any) => {
@@ -89,10 +145,29 @@ const loggerScenarios = [
 
 // Plugin-specific logger configuration
 const pluginLoggerConfigs = {
-  'database-plugin': { type: 'console' as const, context: 'Database' },
-  'api-plugin': { type: 'pino' as const },
+  'database-plugin': {
+    type: 'colorful' as const,
+    context: 'Database',
+    timestampFormat: 'time' as const,
+    showEmoji: true,
+    levelColors: {
+      info: '#4ECDC4',
+      warn: '#FFA07A',
+      error: '#FF6B6B'
+    }
+  },
+  'api-plugin': {
+    type: 'colorful' as const,
+    context: 'API',
+    showEmoji: true
+  },
   'cache-plugin': { type: 'noop' as const }, // Disable cache logging
-  'auth-plugin': { type: 'console' as const, context: 'Auth' }
+  'auth-plugin': {
+    type: 'colorful' as const,
+    context: 'Auth',
+    contextColor: '#FF69B4',
+    showEmoji: true
+  }
 };
 
 // Declarative plugin logger setup
@@ -123,11 +198,37 @@ const demonstrateHierarchicalLoggers = () => {
   grandchildLogger.info("Message from grandchild logger");
 };
 
+// Color palette demonstration
+const demonstrateColorPalette = () => {
+  console.log("\n🎨 Bun.color Palette Demo:");
+  
+  const colors = [
+    { name: 'CSS Colors', colors: ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan'] },
+    { name: 'Hex Colors', colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'] },
+    { name: 'RGB/HSL', colors: ['rgb(255, 99, 71)', 'hsl(120, 50%, 50%)'] }
+  ];
+  
+  colors.forEach(category => {
+    console.log(`\n${category.name}:`);
+    category.colors.forEach(color => {
+      const ansiColor = Bun.color(color, 'ansi');
+      if (ansiColor) {
+        console.log(`${ansiColor}This text is ${color}${Bun.color('reset', 'ansi')}`);
+      }
+    });
+  });
+};
+
 // Structured logging demonstration
 const demonstrateStructuredLogging = () => {
   console.log("\n📊 Structured Logging:");
   
-  const structuredLogger = createLogger({ type: 'console', context: 'Structured' });
+  const structuredLogger = createLogger({
+    type: 'colorful' as const,
+    context: 'Structured',
+    timestampFormat: 'iso' as const,
+    showEmoji: true
+  });
   
   // Log with metadata
   structuredLogger.info("User completed purchase", {
@@ -151,7 +252,17 @@ const demonstrateStructuredLogging = () => {
 const demonstratePerformanceLogging = () => {
   console.log("\n⚡ Performance Logging:");
   
-  const perfLogger = createLogger({ type: 'console', context: 'Performance' });
+  const perfLogger = createLogger({
+    type: 'colorful' as const,
+    context: 'Performance',
+    timestampFormat: 'time' as const,
+    showEmoji: true,
+    levelColors: {
+      info: '#00FF7F',  // Spring green
+      warn: '#FFD700',  // Gold
+      error: '#FF4500'  // Orange red
+    }
+  });
   
   // Simulate some operations with timing
   const operations = [
@@ -170,9 +281,69 @@ const demonstratePerformanceLogging = () => {
   });
 };
 
+// Advanced color configuration demonstration
+const demonstrateAdvancedColors = () => {
+  console.log("\n🔬 Advanced Color Configuration:");
+  
+  // Create loggers with different color schemes
+  const neonLogger = createLogger({
+    type: 'colorful' as const,
+    context: 'Neon',
+    levelColors: {
+      info: '#00FFFF',    // Cyan
+      warn: '#FF00FF',    // Magenta
+      error: '#FFFF00',   // Yellow
+      debug: '#00FF00'    // Lime
+    },
+    contextColor: '#FF1493', // Deep pink
+    showEmoji: true
+  });
+  
+  const pastelLogger = createLogger({
+    type: 'colorful' as const,
+    context: 'Pastel',
+    levelColors: {
+      info: '#B19CD9',    // Light purple
+      warn: '#FFB6C1',    // Light pink
+      error: '#FFA07A',   // Light salmon
+      debug: '#87CEEB'    // Sky blue
+    },
+    contextColor: '#DDA0DD', // Plum
+    showEmoji: false
+  });
+  
+  const darkThemeLogger = createLogger({
+    type: 'colorful' as const,
+    context: 'DarkTheme',
+    levelColors: {
+      info: '#00FF00',    // Green
+      warn: '#FFA500',    // Orange
+      error: '#FF0000',   // Red
+      debug: '#808080'    // Gray
+    },
+    contextColor: '#FFFFFF', // White
+    showEmoji: true
+  });
+  
+  // Test each themed logger
+  const loggers = [
+    { name: 'Neon Theme', logger: neonLogger },
+    { name: 'Pastel Theme', logger: pastelLogger },
+    { name: 'Dark Theme', logger: darkThemeLogger }
+  ];
+  
+  loggers.forEach(({ name, logger: log }) => {
+    console.log(`\n${name}:`);
+    log.info("Information message");
+    log.warn("Warning message");
+    log.error("Error message");
+    log.debug?.("Debug message");
+  });
+};
+
 // Main demonstration
 const demonstrateDeclarativeLogging = async () => {
-  console.log("🚀 Declarative Logger Demo\n");
+  console.log("🚀 Enhanced Declarative Logger Demo\n");
   
   // Scenario 1: Different logger types
   console.log("=== Logger Types ===");
@@ -196,13 +367,19 @@ const demonstrateDeclarativeLogging = async () => {
   // Scenario 3: Hierarchical loggers
   demonstrateHierarchicalLoggers();
   
-  // Scenario 4: Structured logging
+  // Scenario 4: Color palette
+  demonstrateColorPalette();
+  
+  // Scenario 5: Structured logging
   demonstrateStructuredLogging();
   
-  // Scenario 5: Performance logging
+  // Scenario 6: Performance logging
   demonstratePerformanceLogging();
   
-  console.log("\n✅ Logger demo completed!");
+  // Scenario 7: Advanced colors
+  demonstrateAdvancedColors();
+  
+  console.log("\n✅ Enhanced declarative logger demo completed!");
 };
 
 // Export for use

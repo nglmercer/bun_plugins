@@ -4,17 +4,32 @@
  * This example demonstrates how to use custom loggers with the simplified system
  */
 
-import { logger, ConsoleLogger, NoopLogger, SimpleLoggerAdapter } from "../src";
+import { logger, ConsoleLogger, NoopLogger, SimpleLoggerAdapter, ColorfulConsoleLogger } from "../src";
 
-// Example 1: Using the default console logger
+// Example 1: Using the default colorful console logger
 const demoDefaultLogger = () => {
-  console.log("\n=== Default Console Logger ===");
+  console.log("\n=== Default Colorful Console Logger ===");
   const log = logger.getDefaultLogger();
   
   log.info("This is an info message");
   log.warn("This is a warning message");
   log.error("This is an error message");
   log.debug?.("This is a debug message"); // Optional debug method
+};
+
+// Example 1b: Using basic console logger without colors
+const demoBasicConsoleLogger = () => {
+  console.log("\n=== Basic Console Logger (No Colors) ===");
+  
+  // Create a basic console logger without colors
+  const basicLogger = logger.createConsoleLogger({ useColors: false });
+  logger.setDefaultLogger(basicLogger);
+  
+  const log = logger.getDefaultLogger();
+  log.info("This is a basic info message");
+  log.warn("This is a basic warning message");
+  log.error("This is a basic error message");
+  log.debug?.("This is a basic debug message");
 };
 
 // Example 2: Using a custom logger (simulating Winston/Pino style)
@@ -48,12 +63,12 @@ const demoCustomLogger = () => {
   log.debug?.("Custom logger debug message");
 };
 
-// Example 3: Plugin-specific loggers with context
+// Example 3: Plugin-specific loggers with context and colors
 const demoPluginLoggers = () => {
-  console.log("\n=== Plugin-specific Loggers ===");
+  console.log("\n=== Plugin-specific Colorful Loggers ===");
   
-  // Reset to console logger
-  logger.setDefaultLogger(new ConsoleLogger());
+  // Reset to colorful console logger
+  logger.setDefaultLogger(new ColorfulConsoleLogger());
   
   // Create loggers for different plugins
   const dbLogger = logger.createLogger("database");
@@ -112,17 +127,70 @@ const demoWrapLogger = () => {
   adaptedLogger.error("Error from wrapped logger");
 };
 
+// Example 6: Advanced colorful logger with custom colors
+const demoAdvancedColorfulLogger = () => {
+  console.log("\n=== Advanced Colorful Logger ===");
+  
+  // Create a colorful logger with custom configuration
+  const colorfulLogger = logger.createColorfulConsoleLogger({
+    useColors: true,
+    timestampFormat: 'time',
+    levelColors: {
+      info: '#00FF00',    // Bright green
+      warn: '#FFD700',    // Gold
+      error: '#FF0000',   // Red
+      debug: '#00CED1'    // Dark turquoise
+    },
+    contextColor: '#FF69B4', // Hot pink
+    showEmoji: true
+  });
+  
+  logger.setDefaultLogger(colorfulLogger);
+  
+  const log = logger.getDefaultLogger();
+  log.info("System initialized successfully");
+  log.warn("Cache miss detected");
+  log.error("Failed to connect to external service");
+  log.debug?.("Processing request with ID: abc123");
+  
+  // Test hierarchical logging with colors
+  const childLogger = log.child?.('submodule') || log;
+  childLogger.info("Child logger with colorful context");
+  childLogger.error("Error from child logger");
+};
+
+// Example 7: Color palette demonstration
+const demoColorPalette = () => {
+  console.log("\n=== Bun.color Palette Demo ===");
+  
+  const colors = [
+    'red', 'green', 'blue', 'yellow', 'magenta', 'cyan',
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+    'rgb(255, 99, 71)', 'hsl(120, 50%, 50%)'
+  ];
+  
+  colors.forEach(color => {
+    const ansiColor = Bun.color(color, 'ansi');
+    if (ansiColor) {
+      console.log(`${ansiColor}This text is ${color}${Bun.color('reset', 'ansi')}`);
+    }
+  });
+};
+
 // Main demonstration
 const runLoggerDemo = async () => {
-  console.log("🚀 Simple Logger Demo\n");
+  console.log("🚀 Enhanced Colorful Logger Demo\n");
   
   demoDefaultLogger();
+  demoBasicConsoleLogger();
   demoCustomLogger();
   demoPluginLoggers();
   demoNoopLogger();
   demoWrapLogger();
+  demoAdvancedColorfulLogger();
+  demoColorPalette();
   
-  console.log("\n✅ Logger demo completed!");
+  console.log("\n✅ Enhanced logger demo completed!");
 };
 
 // Export for use

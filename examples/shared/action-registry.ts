@@ -16,7 +16,6 @@ export class ActionRegistry {
 
   register(def: ActionDefinition): void {
     this.handlers.set(def.name, def.handler);
-    console.log(`[ActionRegistry] Registered: ${def.name}`);
   }
 
   execute(name: string, ...args: any[]): any {
@@ -24,7 +23,6 @@ export class ActionRegistry {
     if (!handler) {
       throw new Error(`Action not found: ${name}`);
     }
-    console.log(`[ActionRegistry] Executing: ${name}`);
     return handler(...args);
   }
 
