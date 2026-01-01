@@ -4,6 +4,7 @@ import type { PluginManager } from "../PluginManager";
 import type { ResourceManager } from "./ResourceManager";
 import { type IPluginStorage } from "../types";
 import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "../utils/security";
+import { logger } from "../logger";
 
 export function createPluginContext(
     manager: PluginManager,
@@ -47,11 +48,7 @@ export function createPluginContext(
             const p = manager.getPlugin(name);
             return p?.getSharedApi ? p.getSharedApi() : undefined;
         },
-        log: {
-            info: (msg, ...args) => console.log(`[${plugin.name}] info: ${msg}`, ...args),
-            warn: (msg, ...args) => console.warn(`[${plugin.name}] warn: ${msg}`, ...args),
-            error: (msg, ...args) => console.error(`[${plugin.name}] error: ${msg}`, ...args),
-        },
+        log: logger.getLogger(plugin.name),
         createWorker: (url, options?) => {
             // Use the manager's worker factory to allow proper mocking in tests
             const workerFactory = manager.getWorkerFactory();
@@ -80,7 +77,7 @@ export function createPluginContext(
             });
             
             w.addEventListener?.("error", (err: any) => {
-                console.error(`[${plugin.name}] Worker error:`, err.message); 
+                logger.getLogger(plugin.name).error(`Worker error:`, err.message);
             });
 
             resources.get(plugin.name)?.workers.push(w);

@@ -25,6 +25,7 @@ import { HooksManager } from "./managers/HooksManager";
 import { createPluginContext } from "./managers/ContextFactory";
 import { errorParser } from "./utils/errorParser";
 import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "./utils/security";
+import { logger } from "./logger";
 
 export class PluginManager extends EventEmitter implements IPluginManager {
   private plugins: Map<string, IPlugin> = new Map();
@@ -87,7 +88,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         }
     }
 
-    console.log(`Loading plugin: ${plugin.name} v${plugin.version}`);
+    logger.getLogger("PluginManager").info(`Loading plugin: ${plugin.name} v${plugin.version}`);
     
     // 1. Prepare Storage
     const storage = new JsonPluginStorage(this.storageRoot, plugin.name);
@@ -99,7 +100,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
             config = plugin.configSchema.parse(config) as Record<string, any>;
         } catch (e) {
             const error = errorParser(e, `Error in plugin ${plugin.name}`);
-            console.warn(`[SafeMode] Using default config, validation failed. Error: ${error.message}`);
+            logger.getLogger("PluginManager").warn(`[SafeMode] Using default config, validation failed. Error: ${error.message}`);
         }
     }
 
@@ -120,7 +121,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         try {
             await plugin.setup(this.hooksManager.getBuilder(plugin.name, config));
         } catch (e) {
-             console.error(`Error during setup for ${plugin.name}:`, e);
+             logger.getLogger("PluginManager").error(`Error during setup for ${plugin.name}:`, e);
              throw errorParser(e, `Error during setup for ${plugin.name}`);
         }
     }
@@ -136,21 +137,21 @@ export class PluginManager extends EventEmitter implements IPluginManager {
       const duration = performance.now() - start;
 
       this.plugins.set(plugin.name, plugin);
-      console.log(`Plugin ${plugin.name} loaded successfully in ${duration.toFixed(2)}ms.`);
+      logger.getLogger("PluginManager").info(`Plugin ${plugin.name} loaded successfully in ${duration.toFixed(2)}ms.`);
       
       // Trigger onStarted after registration if provided
       if (plugin.onStarted) {
           try {
               await plugin.onStarted();
           } catch (e) {
-              console.error(`Error in onStarted for ${plugin.name}:`, e);
+              logger.getLogger("PluginManager").error(`Error in onStarted for ${plugin.name}:`, e);
           }
       }
 
       // 7. Trigger onStart hooks registered via setup()
       await this.hooksManager.runOnStart();
     } catch (error) {
-      console.error(`Failed to load plugin ${plugin.name}:`, error);
+      logger.getLogger("PluginManager").error(`Failed to load plugin ${plugin.name}:`, error);
       // Cleanup resources directly since plugin is not in this.plugins yet
       this.resources.cleanup(plugin.name, this);
       this.hooksManager.cleanup(plugin.name);
@@ -161,7 +162,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   async registerIsolated(pluginPath: string, pluginName: string): Promise<void> {
        return new Promise((resolve, reject) => {
            const workerScript = this.workerRunnerPath;
-           console.log("Worker Path:", workerScript);
+           logger.getLogger("PluginManager").info("Worker Path:", workerScript);
            const timeoutId = setTimeout(() => {
                worker.terminate();
                reject(new Error(`Isolated plugin ${pluginName} timed out during loading (${this.pluginLoadTimeout}ms)`));
@@ -255,7 +256,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                        }
                        else if (method === RPCMethod.Log) {
                            const level = args[0] as 'info' | 'warn' | 'error';
-                           console[level](`[${pluginName}]`, ...args.slice(1));
+                           const [msg, ...restArgs] = args.slice(1);
+                           logger.getLogger(pluginName)[level](msg, ...restArgs);
                            result = true;
                        }
                        else if (method === RPCMethod.PermissionCheck) {
@@ -315,7 +317,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                 else if (msg.type === WorkerMessageType.MANIFEST) {
                     const { metadata } = msg;
                     pluginMetadata = metadata;
-                    console.log(`Metadata received for isolated plugin: ${metadata.name}`);
+                    logger.getLogger("PluginManager").info(`Metadata received for isolated plugin: ${metadata.name}`);
                 }
                 else if (msg.type === WorkerMessageType.LOAD_SUCCESS) {
                      clearTimeout(timeoutId); // Success, clear global timeout
@@ -345,7 +347,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                         },
                     };
                     this.plugins.set(metadata.name, proxyPlugin);
-                    console.log(`Isolated Plugin ${metadata.name} loaded in worker.`);
+                    logger.getLogger("PluginManager").info(`Isolated Plugin ${metadata.name} loaded in worker.`);
                     resolve();
                }
                 else if (msg.type === WorkerMessageType.LOAD_ERROR) {
@@ -363,7 +365,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
            worker.addEventListener("message", (event) => rpcHandler(event.data));
             worker.addEventListener("error", (err) => {
                 clearTimeout(timeoutId);
-                console.error(`[Isolated:${pluginName}] Worker Error:`, err);
+                logger.getLogger("PluginManager").error(`[Isolated:${pluginName}] Worker Error:`, err);
                 // Reject all pending hooks on crash
                 for (const pending of Array.from(pendingHooks.values())) {
                     pending.reject(new Error("Worker terminated unexpectedly"));
@@ -380,19 +382,19 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
     for (const [name, p] of Array.from(this.plugins.entries())) {
         if (p.dependencies && p.dependencies[pluginName]) {
-            console.warn(`Warning: Plugin ${name} depends on ${pluginName} which is being unloaded.`);
+            logger.getLogger("PluginManager").warn(`Warning: Plugin ${name} depends on ${pluginName} which is being unloaded.`);
         }
     }
 
     try {
       await plugin.onUnload();
     } catch (error) {
-      console.error(`Error unloading plugin ${pluginName}:`, error);
+      logger.getLogger("PluginManager").error(`Error unloading plugin ${pluginName}:`, error);
     } finally {
         this.plugins.delete(pluginName);
         this.resources.cleanup(pluginName, this);
         this.hooksManager.cleanup(pluginName);
-        console.log(`Plugin ${pluginName} unloaded.`);
+        logger.getLogger("PluginManager").info(`Plugin ${pluginName} unloaded.`);
     }
   }
 
@@ -443,7 +445,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
             disabledPlugins = data.disabled || [];
         }
       } catch (e) {
-        console.warn("Failed to load global plugin config", e);
+        logger.getLogger("PluginManager").warn("Failed to load global plugin config", e);
       }
 
       const entries = await readdir(directoryPath, { withFileTypes: true });
@@ -481,11 +483,11 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
               } else {
                  const errorMsg = (validation as any).error;
-                 console.warn(`Skipping invalid plugin item in ${entry.name}: ${errorMsg}`);
+                 logger.getLogger("PluginManager").warn(`Skipping invalid plugin item in ${entry.name}: ${errorMsg}`);
               }
             }
           } catch (err) {
-            console.error(`Error importing ${fullPath}:`, err);
+            logger.getLogger("PluginManager").error(`Error importing ${fullPath}:`, err);
           }
         }
       }
@@ -495,7 +497,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
           if (!disabledPlugins.includes(plugin.name)) {
               pluginsToLoad.push(plugin);
           } else {
-              console.log(`Plugin ${plugin.name} is disabled.`);
+              logger.getLogger("PluginManager").info(`Plugin ${plugin.name} is disabled.`);
           }
       }
 
@@ -508,7 +510,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
               if (plugin.dependencies) {
                   for (const dep of Object.keys(plugin.dependencies)) {
                       if (!this.plugins.has(dep)) {
-                          console.warn(`Skipping ${plugin.name}: Dependency ${dep} failed to load or is missing.`);
+                          logger.getLogger("PluginManager").warn(`Skipping ${plugin.name}: Dependency ${dep} failed to load or is missing.`);
                           dependenciesOk = false;
                           break;
                       }
@@ -519,7 +521,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
               try {
                   if (this.plugins.has(plugin.name)) { 
-                      console.log(`Updating plugin: ${plugin.name}`);
+                      logger.getLogger("PluginManager").info(`Updating plugin: ${plugin.name}`);
                       await this.reloadPlugin(plugin.name);
                       loadedPlugins.push(plugin);
                   } else {
@@ -527,7 +529,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                       loadedPlugins.push(plugin);
                   }
               } catch (e) {
-                   console.error(`Failed to load/update ${plugin.name}:`, e);
+                   logger.getLogger("PluginManager").error(`Failed to load/update ${plugin.name}:`, e);
               }
           }
 
@@ -536,23 +538,23 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                   try {
                       await plugin.onStarted();
                   } catch (e) {
-                      console.error(`Error in onStarted for ${plugin.name}:`, e);
+                      logger.getLogger("PluginManager").error(`Error in onStarted for ${plugin.name}:`, e);
                   }
               }
           }
       } catch (e) {
-          console.error("Failed to resolve plugin dependencies or load plugins:", e);
+          logger.getLogger("PluginManager").error("Failed to resolve plugin dependencies or load plugins:", e);
       }
 
     } catch (error) {
-      console.error(`Failed to load plugins from ${directoryPath}`, error);
+      logger.getLogger("PluginManager").error(`Failed to load plugins from ${directoryPath}`, error);
     }
   }
 
   async disablePlugin(name: string): Promise<void> {
     await this.unregister(name);
     await this.updatePluginState(name, true);
-    console.log(`Plugin ${name} disabled.`);
+    logger.getLogger("PluginManager").info(`Plugin ${name} disabled.`);
   }
 
   async enablePlugin(name: string): Promise<void> {
@@ -564,14 +566,14 @@ export class PluginManager extends EventEmitter implements IPluginManager {
             if (plugin.dependencies) {
                 for (const dep of Object.keys(plugin.dependencies)) {
                     if (!this.plugins.has(dep)) {
-                        console.warn(`Cannot enable ${name}: Dependency ${dep} is not loaded.`);
+                        logger.getLogger("PluginManager").warn(`Cannot enable ${name}: Dependency ${dep} is not loaded.`);
                         return;
                     }
                 }
             }
             await this.register(plugin);
         } else {
-             console.warn(`Plugin ${name} enabled but not found in available plugins.`);
+             logger.getLogger("PluginManager").warn(`Plugin ${name} enabled but not found in available plugins.`);
         }
     }
   }
@@ -579,7 +581,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   async reloadPlugin(name: string): Promise<void> {
     const oldPlugin = this.plugins.get(name);
     if (oldPlugin) {
-        console.log(`Reloading plugin ${name}...`);
+        logger.getLogger("PluginManager").info(`Reloading plugin ${name}...`);
         await this.unregister(name);
     }
     
@@ -596,7 +598,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
             try {
                 await newPlugin.onReload(context);
             } catch (e) {
-                console.error(`Error in onReload for ${name}:`, e);
+                logger.getLogger("PluginManager").error(`Error in onReload for ${name}:`, e);
             }
         }
         
@@ -629,7 +631,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         await Bun.write(globalConfigPath, JSON.stringify(config, null, 2));
 
       } catch (e) {
-        console.error("Failed to update plugin state", e);
+        logger.getLogger("PluginManager").error("Failed to update plugin state", e);
       }
   }
 
@@ -652,14 +654,14 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
   private hotReloadTimer: Timer | number | null = null;
   enableHotReload(pluginDir: string) {
-      console.log(`[HotReload] Watching ${pluginDir} for changes...`);
+      logger.getLogger("PluginManager").info(`[HotReload] Watching ${pluginDir} for changes...`);
       watch(pluginDir, { recursive: true }, async (event, filename) => {
           if (!filename || (!filename.endsWith(".ts") && !filename.endsWith(".js"))) return;
           
           if (this.hotReloadTimer) clearTimeout(this.hotReloadTimer);
           
           this.hotReloadTimer = setTimeout(async () => {
-              console.log(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);
+              logger.getLogger("PluginManager").info(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);
               await this.loadPluginsFromDirectory(pluginDir);
           }, 300);
       });
@@ -703,18 +705,18 @@ export class PluginManager extends EventEmitter implements IPluginManager {
       const isProduction = process.env.NODE_ENV === "production";
       
       if (isProduction) {
-        console.warn(`[PluginManager] Warning: Plugin at ${pluginPath} is missing node_modules. Auto-install is disabled in production.`);
+        logger.getLogger("PluginManager").warn(`[PluginManager] Warning: Plugin at ${pluginPath} is missing node_modules. Auto-install is disabled in production.`);
         return;
       }
 
       // 2. Check if 'bun' CLI is even available in the system
       const bunPath = Bun.which("bun");
       if (!bunPath) {
-        console.warn(`[PluginManager] Warning: node_modules missing in ${pluginPath}, but 'bun' CLI was not found. Cannot auto-install.`);
+        logger.getLogger("PluginManager").warn(`[PluginManager] Warning: node_modules missing in ${pluginPath}, but 'bun' CLI was not found. Cannot auto-install.`);
         return;
       }
 
-      console.log(`[PluginManager] Development mode detected. node_modules missing in ${pluginPath}. Installing deps...`);
+      logger.getLogger("PluginManager").info(`[PluginManager] Development mode detected. node_modules missing in ${pluginPath}. Installing deps...`);
       try {
         const proc = Bun.spawn([bunPath, "install"], {
           cwd: pluginPath,
@@ -723,10 +725,10 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         });
         const exitCode = await proc.exited;
         if (exitCode !== 0) {
-          console.error(`[PluginManager] Failed to install dependencies for ${pluginPath}. Exit code: ${exitCode}`);
+          logger.getLogger("PluginManager").error(`[PluginManager] Failed to install dependencies for ${pluginPath}. Exit code: ${exitCode}`);
         }
       } catch (e) {
-        console.error(`[PluginManager] Error running bun install for ${pluginPath}:`, e);
+        logger.getLogger("PluginManager").error(`[PluginManager] Error running bun install for ${pluginPath}:`, e);
       }
     }
   }

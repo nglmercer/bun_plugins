@@ -1,5 +1,6 @@
 
 import { type PluginResource } from "../types";
+import { logger } from "../logger";
 
 export class ResourceManager {
     private resources: Map<string, PluginResource> = new Map();
@@ -18,7 +19,7 @@ export class ResourceManager {
         const res = this.resources.get(pluginName);
         if (res) {
             for (const worker of res.workers) {
-                console.log(`Terminating worker for plugin ${pluginName}`);
+                logger.getLogger("ResourceManager").info(`Terminating worker for plugin ${pluginName}`);
                 worker.terminate();
             }
             for (const timer of res.timers) {

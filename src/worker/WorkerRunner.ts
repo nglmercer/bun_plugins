@@ -11,6 +11,7 @@ import {
     HookType
 } from "../types";
 import { errorParser } from "../utils/errorParser";
+import { logger } from "../logger";
 // This is the "Shell" that runs inside the Worker.
 // It receives the plugin path, loads it, and executes onLoad.
 // It creates a proxy Context that talks back to the main thread via postMessage.
@@ -71,18 +72,18 @@ async function run() {
                         await cb(payload);
                     } catch (e) {
                         const error = errorParser(e, `Error in event listener for ${event}`);
-                        console.error(`[Worker:${pluginName}] Error in event listener for ${event}:`, error.message);
+                        logger.getLogger(`Worker:${pluginName}`).error(`Error in event listener for ${event}:`, error.message);
                     }
                 }
             }
         }
         else if (msg.type === WorkerMessageType.UNLOAD) {
-            console.log(`[Worker:${pluginName}] Received UNLOAD signal.`);
+            logger.getLogger(`Worker:${pluginName}`).info(`Received UNLOAD signal.`);
             if (plugin && plugin.onUnload) {
                 try {
                     await plugin.onUnload();
                 } catch (e) {
-                    console.error(`[Worker:${pluginName}] Error during onUnload:`, e);
+                    logger.getLogger(`Worker:${pluginName}`).error(`Error during onUnload:`, e);
                 }
             }
             process.exit(0);
@@ -90,7 +91,7 @@ async function run() {
     });
 
     try {
-        console.log(`[Worker:${pluginName}] Loading plugin from ${pluginPath}...`);
+        logger.getLogger(`Worker:${pluginName}`).info(`Loading plugin from ${pluginPath}...`);
         
         // Dynamic Import of the Plugin
         const module = await import(pluginPath);
@@ -283,7 +284,7 @@ async function run() {
                     try {
                         await plugin.onStarted();
                     } catch (e) {
-                        console.error(`[Worker:${pluginName}] Error in onStarted:`, e);
+                        logger.getLogger(`Worker:${pluginName}`).error(`Error in onStarted:`, e);
                     }
                 }
             }
@@ -291,7 +292,7 @@ async function run() {
 
     } catch (e) {
         const error = errorParser(e, `[Worker:${pluginName}] Error:`);
-        console.error(error.message);
+        logger.getLogger(`Worker:${pluginName}`).error(error.message);
         parentPort!.postMessage({ type: WorkerMessageType.LOAD_ERROR, error: error.message });
     }
 }

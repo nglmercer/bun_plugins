@@ -10,6 +10,7 @@ import {
     HookType
 } from "../types";
 import type { BunPlugin } from "bun";
+import { logger } from "../logger";
 
 export class HooksManager {
     private onResolveHooks: HookRegistry<OnResolveCallback>[] = [];
@@ -48,7 +49,7 @@ export class HooksManager {
             try {
                 await hook.callback();
             } catch (e) {
-                console.error(`Error in onStart hook from ${hook.pluginName}:`, e);
+                logger.getLogger("HooksManager").error(`Error in onStart hook from ${hook.pluginName}:`, e);
             }
         }
     }
@@ -65,7 +66,7 @@ export class HooksManager {
                      const result = await hook.callback(args);
                      if (result) return result;
                 } catch (e) {
-                    console.error(`Error in onResolve hook from ${hook.pluginName}:`, e);
+                    logger.getLogger("HooksManager").error(`Error in onResolve hook from ${hook.pluginName}:`, e);
                 }
             }
         }
@@ -97,7 +98,7 @@ export class HooksManager {
                         };
                     }
                 } catch (e) {
-                    console.error(`Error in onLoad hook from ${hook.pluginName}:`, e);
+                    logger.getLogger("HooksManager").error(`Error in onLoad hook from ${hook.pluginName}:`, e);
                 }
             }
         }
@@ -116,7 +117,7 @@ export class HooksManager {
                     const start = performance.now();
                     const res = await callback(args);
                     const dur = performance.now() - start;
-                    if (dur > 100) console.warn(`[Performance] ${pluginName} onResolve took ${dur.toFixed(2)}ms`);
+                    if (dur > 100) logger.getLogger("HooksManager").warn(`[Performance] ${pluginName} onResolve took ${dur.toFixed(2)}ms`);
                     return res;
                 };
                 this.registerOnResolve(filter, perfCallback, pluginName, options?.order);
@@ -127,7 +128,7 @@ export class HooksManager {
                     const start = performance.now();
                     const res = await callback(args);
                     const dur = performance.now() - start;
-                    if (dur > 100) console.warn(`[Performance] ${pluginName} onLoad took ${dur.toFixed(2)}ms`);
+                    if (dur > 100) logger.getLogger("HooksManager").warn(`[Performance] ${pluginName} onLoad took ${dur.toFixed(2)}ms`);
                     return res;
                 };
                 this.registerOnLoad(filter, perfCallback, pluginName, options?.order);

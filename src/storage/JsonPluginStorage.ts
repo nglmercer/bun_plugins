@@ -1,6 +1,7 @@
 import { join, dirname } from "node:path";
 import { mkdir } from "node:fs/promises";
 import type { IPluginStorage } from "../types";
+import { logger } from "../logger";
 
 export class JsonPluginStorage implements IPluginStorage {
   private filePath: string;
@@ -31,7 +32,7 @@ export class JsonPluginStorage implements IPluginStorage {
       }
     } catch (e) {
       if (this.data === null) {
-        console.error(`Failed to load storage for ${this.filePath}`, e);
+        logger.getLogger("JsonPluginStorage").error(`Failed to load storage for ${this.filePath}`, e);
         this.data = {};
       }
     }
@@ -48,7 +49,7 @@ export class JsonPluginStorage implements IPluginStorage {
         const stats = await import("node:fs/promises").then(fs => fs.stat(this.filePath));
         this.lastModified = stats.mtimeMs;
     } catch (e) {
-        console.error(`Failed to save storage for ${this.filePath}`, e);
+        logger.getLogger("JsonPluginStorage").error(`Failed to save storage for ${this.filePath}`, e);
     }
   }
 
