@@ -1,5 +1,5 @@
 
-import type { IPlugin, PluginContext } from "../src";
+import { definePlugin } from "../src";
 import { TTSService } from "../examples/tts/service";
 
 class EdgeTTSProvider {
@@ -9,17 +9,15 @@ class EdgeTTSProvider {
     }
 }
 
-export class EdgeTTSPlugin implements IPlugin {
-    name = "edge-tts";
-    version = "1.0.0";
+export default definePlugin({
+    name: "edge-tts",
+    version: "1.0.0",
 
-    async onLoad(context: PluginContext) {
+    async onLoad(context) {
         // As tts is no longer in context, we use the singleton from the example lib
         TTSService.getInstance().registerProvider(new EdgeTTSProvider());
         context.log.info("EdgeTTS Provider registered via plugin");
-    }
-
-    async onUnload() {
-        // Cleanup if necessary
-    }
-}
+    },
+    
+    onUnload() {}
+});

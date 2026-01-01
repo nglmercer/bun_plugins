@@ -671,6 +671,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
           activePlugins: Array.from(this.plugins.keys()),
           resources: this.resources.getUsageSummary(),
           hooks: {
+              onStart: this.hooksManager.getHookCount(HookType.ON_START),
               onResolve: this.hooksManager.getHookCount(HookType.ON_RESOLVE),
               onLoad: this.hooksManager.getHookCount(HookType.ON_LOAD)
           }
