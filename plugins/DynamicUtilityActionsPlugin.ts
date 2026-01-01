@@ -25,24 +25,19 @@ export class DynamicUtilityActionsPlugin implements IPlugin {
       if (actionRegistry) {
         // Registrar acciones de utilidad
         actionRegistry.registerAction("random", (min: number, max: number) => {
-          console.log(`[DynamicUtility] Generando número aleatorio entre ${min} y ${max}`);
           return Math.floor(Math.random() * (max - min + 1)) + min;
         });
         
         actionRegistry.registerAction("timestamp", () => {
-          const now = Date.now();
-          console.log(`[DynamicUtility] Obteniendo timestamp: ${now}`);
-          return now;
+          return Date.now();
         });
         
         actionRegistry.registerAction("delay", async (ms: number) => {
-          console.log(`[DynamicUtility] Esperando ${ms}ms...`);
           await new Promise(resolve => setTimeout(resolve, ms));
-          return `Esperado ${ms}ms`;
+          return `Delayed ${ms}ms`;
         });
         
         actionRegistry.registerAction("uuid", () => {
-          console.log(`[DynamicUtility] Generando UUID`);
           return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             const r = Math.random() * 16 | 0;
             const v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -51,7 +46,6 @@ export class DynamicUtilityActionsPlugin implements IPlugin {
         });
         
         actionRegistry.registerAction("formatDate", (date: Date, format: string) => {
-          console.log(`[DynamicUtility] Formateando fecha: ${date.toISOString()}`);
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, '0');
           const day = String(date.getDate()).padStart(2, '0');
@@ -68,18 +62,17 @@ export class DynamicUtilityActionsPlugin implements IPlugin {
             .replace('ss', seconds);
         });
         
-        context.log.info("Acciones de utilidad dinámicas registradas");
-        console.log("🛠️ Plugin de acciones de utilidad cargado dinámicamente");
+        context.log.info("Utility actions registered");
       } else {
-        console.error("ActionRegistry no disponible, las acciones no se registrarán");
+        context.log.error("ActionRegistry not available, actions will not be registered");
       }
     } catch (error) {
-      console.error("Error registrando acciones de utilidad:", error);
+      context.log.error("Error registering utility actions:", error);
     }
   }
 
   onUnload() {
-    console.log("DynamicUtilityActionsPlugin: Desactivando acciones de utilidad");
+    // Cleanup is handled by the plugin manager
   }
 
   // Informar qué acciones proporciona este plugin

@@ -5,7 +5,7 @@ export class MathPlugin extends Plugin {
   version = "0.5.0";
 
   onLoad(context: PluginContext) {
-    console.log("Math capabilities ready.");
+    context.log.info("Math capabilities ready");
   }
 
   // Custom method exposed by this plugin

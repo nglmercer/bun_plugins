@@ -25,42 +25,36 @@ export class DynamicTextActionsPlugin implements IPlugin {
       if (actionRegistry) {
         // Registrar acciones de texto
         actionRegistry.registerAction("uppercase", (text: string) => {
-          console.log(`[DynamicText] Convirtiendo a mayúsculas: "${text}"`);
           return text.toUpperCase();
         });
         
         actionRegistry.registerAction("lowercase", (text: string) => {
-          console.log(`[DynamicText] Convirtiendo a minúsculas: "${text}"`);
           return text.toLowerCase();
         });
         
         actionRegistry.registerAction("reverse", (text: string) => {
-          console.log(`[DynamicText] Invirtiendo texto: "${text}"`);
           return text.split('').reverse().join('');
         });
         
         actionRegistry.registerAction("wordCount", (text: string) => {
-          console.log(`[DynamicText] Contando palabras en: "${text}"`);
           return text.trim().split(/\s+/).filter(word => word.length > 0).length;
         });
         
         actionRegistry.registerAction("capitalizeWords", (text: string) => {
-          console.log(`[DynamicText] Capitalizando palabras: "${text}"`);
           return text.replace(/\b\w/g, char => char.toUpperCase());
         });
         
-        context.log.info("Acciones de texto dinámicas registradas");
-        console.log("📝 Plugin de acciones de texto cargado dinámicamente");
+        context.log.info("Text actions registered");
       } else {
-        console.error("ActionRegistry no disponible, las acciones no se registrarán");
+        context.log.error("ActionRegistry not available, actions will not be registered");
       }
     } catch (error) {
-      console.error("Error registrando acciones de texto:", error);
+      context.log.error("Error registering text actions:", error);
     }
   }
 
   onUnload() {
-    console.log("DynamicTextActionsPlugin: Desactivando acciones de texto");
+    // Cleanup is handled by the plugin manager
   }
 
   // Informar qué acciones proporciona este plugin

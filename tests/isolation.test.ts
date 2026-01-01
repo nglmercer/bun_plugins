@@ -10,11 +10,8 @@ describe("Plugin Isolation", () => {
     it("should load a plugin in a worker and handle events/hooks", async () => {
         const fixturePath = join(process.cwd(), "tests/fixtures/worker_plugin.ts");
         
-        console.log("Registering isolated plugin...");
         // Register isolated
         await manager.registerIsolated(fixturePath, "worker-plugin");
-        
-        console.log("Waiting for events...");
         // Test Events (Ping -> Pong)
         const pongPromise = new Promise((resolve) => {
             manager.on("pong", (payload) => resolve(payload));

@@ -5,7 +5,7 @@ import { TTSService } from "../examples/tts/service";
 class EdgeTTSProvider {
     name = "EdgeTTS";
     async speak(text: string, voice?: string) {
-        console.log(`[🔊 EdgeTTS Plugin] Speaking (${voice || 'en-US-AriaNeural'}): "${text}"`);
+        // TTS functionality
     }
 }
 

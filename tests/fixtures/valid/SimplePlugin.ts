@@ -5,7 +5,7 @@ export class SimplePlugin implements IPlugin {
   version = "1.0.0";
 
   onLoad(ctx: PluginContext) {
-    console.log("Simple plugin loaded");
+    ctx.log.info("Simple plugin loaded");
   }
 
   onUnload() {}

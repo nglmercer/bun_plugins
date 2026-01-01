@@ -4,11 +4,10 @@ export class MyJSPlugin {
   version = "1.0.0";
   
   onLoad(context) {
-    console.log("Plugin JS cargado!");
-    context.log.info("Hola desde JavaScript");
+    context.log.info("JS plugin loaded");
   }
   
   onUnload() {
-    console.log("Plugin JS descargado");
+    // Cleanup is handled by the plugin manager
   }
 }

@@ -24,37 +24,32 @@ export class DynamicJSActionsPlugin {
       if (actionRegistry) {
         // Registrar acciones de JavaScript
         actionRegistry.registerAction("js-greet", (name) => {
-          console.log(`[DynamicJS] Saludando a: ${name}`);
           return `¡Hola ${name} desde JavaScript!`;
         });
         
         actionRegistry.registerAction("js-random-int", (min, max) => {
-          console.log(`[DynamicJS] Generando número aleatorio entre ${min} y ${max}`);
           return Math.floor(Math.random() * (max - min + 1)) + min;
         });
         
         actionRegistry.registerAction("js-reverse-words", (text) => {
-          console.log(`[DynamicJS] Invirtiendo palabras en: "${text}"`);
           return text.split(' ').reverse().join(' ');
         });
         
         actionRegistry.registerAction("js-count-vowels", (text) => {
-          console.log(`[DynamicJS] Contando vocales en: "${text}"`);
           return (text.match(/[aeiouáéíóú]/gi) || []).length;
         });
         
-        context.log.info("Acciones JavaScript dinámicas registradas");
-        console.log("🟨 Plugin de acciones JavaScript cargado dinámicamente");
+        context.log.info("JavaScript actions registered");
       } else {
-        console.error("ActionRegistry no disponible, las acciones no se registrarán");
+        context.log.error("ActionRegistry not available, actions will not be registered");
       }
     } catch (error) {
-      console.error("Error registrando acciones JavaScript:", error);
+      context.log.error("Error registering JavaScript actions:", error);
     }
   }
 
   onUnload() {
-    console.log("DynamicJSActionsPlugin: Desactivando acciones JavaScript");
+    // Cleanup is handled by the plugin manager
   }
 
   // Informar qué acciones proporciona este plugin

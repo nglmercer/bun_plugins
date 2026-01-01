@@ -25,22 +25,18 @@ export class DynamicMathActionsPlugin implements IPlugin {
       if (actionRegistry) {
         // Registrar acciones matemáticas
         actionRegistry.registerAction("sum", (a: number, b: number) => {
-          console.log(`[DynamicMath] Calculando: ${a} + ${b}`);
           return a + b;
         });
         
         actionRegistry.registerAction("multiply", (a: number, b: number) => {
-          console.log(`[DynamicMath] Calculando: ${a} × ${b}`);
           return a * b;
         });
         
         actionRegistry.registerAction("power", (base: number, exponent: number) => {
-          console.log(`[DynamicMath] Calculando: ${base} ^ ${exponent}`);
           return Math.pow(base, exponent);
         });
         
         actionRegistry.registerAction("factorial", (n: number) => {
-          console.log(`[DynamicMath] Calculando factorial de ${n}`);
           if (n < 0) return NaN;
           if (n === 0) return 1;
           let result = 1;
@@ -50,18 +46,17 @@ export class DynamicMathActionsPlugin implements IPlugin {
           return result;
         });
         
-        context.log.info("Acciones matemáticas dinámicas registradas");
-        console.log("📊 Plugin de acciones matemáticas cargado dinámicamente");
+        context.log.info("Math actions registered");
       } else {
-        console.error("ActionRegistry no disponible, las acciones no se registrarán");
+        context.log.error("ActionRegistry not available, actions will not be registered");
       }
     } catch (error) {
-      console.error("Error registrando acciones matemáticas:", error);
+      context.log.error("Error registering math actions:", error);
     }
   }
 
   onUnload() {
-    console.log("DynamicMathActionsPlugin: Desactivando acciones matemáticas");
+    // Cleanup is handled by the plugin manager
   }
 
   // Informar qué acciones proporciona este plugin

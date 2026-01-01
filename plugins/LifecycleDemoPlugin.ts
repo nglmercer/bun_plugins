@@ -1,5 +1,5 @@
 
-import { Plugin } from "../src";
+import { Plugin, PluginContext } from "../src";
 
 /**
  * A demo plugin showcasing the new "onStart" hook and configuration.
@@ -19,8 +19,8 @@ export class LifecycleDemoPlugin extends Plugin {
         message: "Application Lifecycle Started!"
     };
 
-    onLoad() {
-        console.log(`[LifecycleDemo] Plugin Loaded. Waiting for start...`);
+    onLoad(context: PluginContext) {
+        context.log.info("LifecycleDemo plugin loaded");
     }
 
     setup(build: import("../src").PluginBuilder) {
@@ -30,11 +30,10 @@ export class LifecycleDemoPlugin extends Plugin {
         // Register the NEW onStart hook
         build.onStart(() => {
             if (config.showWelcome !== false) {
-                console.log(`[LifecycleDemo] 🚀 ${config.message || this.defaultConfig.message}`);
+                const message = config.message || this.defaultConfig.message;
+                // Example: Perform post-startup initialization logic here
+                // e.g., connect to DBs, start background jobs, etc.
             }
-            
-            // Example: Perform post-startup initialization logic here
-            // e.g., connect to DBs, start background jobs, etc.
         });
     }
 }

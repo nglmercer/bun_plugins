@@ -38,13 +38,11 @@ describe("Action Registry Dynamic Loading", () => {
     const registry = registryPlugin?.getSharedApi?.();
     
     if (!registry) {
-      console.log("ActionRegistry no disponible, saltando test");
       return;
     }
     
     // Verificar que las acciones se hayan registrado
     const actions = registry.listActions();
-    console.log("Acciones registradas:", actions);
     
     // Verificar acciones específicas si existen
     if (registry.hasAction("sum")) {
@@ -66,7 +64,6 @@ describe("Action Registry Dynamic Loading", () => {
     await manager.loadPluginsFromDirectory(pluginsDir);
     
     const loadedPlugins = manager.listPlugins();
-    console.log("Plugins cargados:", loadedPlugins);
     
     // Verificar qué plugins tienen acciones
     for (const pluginName of loadedPlugins) {
@@ -74,7 +71,7 @@ describe("Action Registry Dynamic Loading", () => {
       if (plugin?.getSharedApi) {
         const api = plugin.getSharedApi() as any;
         if (api && api.actions && Array.isArray(api.actions)) {
-          console.log(`Plugin ${pluginName} tiene acciones:`, api.actions);
+          expect(api.actions.length).toBeGreaterThan(0);
         }
       }
     }

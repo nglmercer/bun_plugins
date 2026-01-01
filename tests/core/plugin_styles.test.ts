@@ -61,7 +61,7 @@ describe("Plugin Styles & Variations", () => {
             onLoad: () => {},
             setup: (build) => {
                 build.onStart(() => {
-                    console.log("[TestLog] onStart executed for onstart-plugin");
+                    // onStart hook executed
                 });
             },
             onUnload: () => {}
@@ -70,12 +70,14 @@ describe("Plugin Styles & Variations", () => {
 
     // 5. Extended Plugin Class (using base Plugin class)
     await write(join(TEMP_PLUGINS_DIR, "extended-plugin.ts"), `
-        import { Plugin } from "../src/Plugin";
+        import { Plugin, PluginContext } from "../src";
         export default class ExtendedPlugin extends Plugin {
             name = "extended-plugin";
             version = "1.0.0";
             // onLoad is optional in base class, but we can override
-            onLoad() { console.log('Extended loaded'); }
+            onLoad(ctx: PluginContext) { 
+                ctx.log.info("Extended plugin loaded");
+            }
         }
     `);
 

@@ -15,7 +15,6 @@ class ActionRegistry {
   // Método para registrar acciones
   registerAction(type: string, handler: EngineActionHandler): void {
     this.actionHandlers.set(type, handler);
-    console.log(`[ActionRegistry] Acción registrada: ${type}`);
   }
 
   // Método para ejecutar acciones
@@ -24,7 +23,6 @@ class ActionRegistry {
     if (!handler) {
       throw new Error(`Acción no encontrada: ${type}`);
     }
-    console.log(`[ActionRegistry] Ejecutando acción: ${type}`);
     return handler(...args);
   }
 
@@ -47,25 +45,21 @@ export class ActionRegistryPlugin implements IPlugin {
 
   constructor() {
     this.actionRegistry = new ActionRegistry();
-    console.log("ActionRegistryPlugin: Constructor ejecutado, ActionRegistry creado");
     
     // Enlazar el método getSharedApi para mantener el contexto correcto
     this.getSharedApi = this.getSharedApi.bind(this);
   }
 
   onLoad(context: PluginContext) {
-    context.log.info("ActionRegistry dinámico inicializado");
-    console.log("🎯 ActionRegistry listo para recibir acciones de otros plugins");
-    console.log("ActionRegistryPlugin: onLoad ejecutado, getSharedApi debería estar disponible");
+    context.log.info("ActionRegistry initialized");
   }
 
   onUnload() {
-    console.log("ActionRegistryPlugin: Limpiando registro de acciones");
+    // Cleanup is handled by the plugin manager
   }
 
   // Exponemos el ActionRegistry como API compartida
   getSharedApi() {
-    console.log("ActionRegistryPlugin: getSharedApi() llamado, retornando:", this.actionRegistry);
     return {
       registerAction: this.actionRegistry.registerAction.bind(this.actionRegistry),
       executeAction: this.actionRegistry.executeAction.bind(this.actionRegistry),
