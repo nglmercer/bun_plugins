@@ -21,6 +21,7 @@ const { pluginPath, pluginName } = workerData;
 // Map to store callbacks for hooks and events
 const hookCallbacks = new Map<string, Function>();
 const localEventListeners = new Map<string, Set<Function>>();
+let currentConfig: Record<string, any> = {};
 
 // Simple RPC Helper
 function rpc(method: string, ...args: any[]): Promise<any> {
@@ -126,6 +127,9 @@ async function run() {
             throw new Error(`[Worker:${pluginName}] No valid plugin found in ${pluginPath}. Ensure you export an instance or class that implements IPlugin.`);
         }
 
+        // Fetch actual config from host
+        currentConfig = await rpc(RPCMethod.ConfigGet) || plugin.defaultConfig || {};
+
         // Send Manifest immediately after load for security context initialization in host
         parentPort!.postMessage({
             type: WorkerMessageType.MANIFEST,
@@ -141,14 +145,19 @@ async function run() {
 
         // Create Proxy Context
         const contextProxy: PluginContext = {
-            manager: {} as IPluginManager, // Manager is not accessible remotely directly
-            config: plugin.defaultConfig || {}, // Initial config (todo: fetch actual valid config)
+            manager: {} as IPluginManager, 
+            get config() {
+                // Return a proxy that can potentially be async or just fetch once and update?
+                // For now, since config needs to be sync, we keep a local copy and update it.
+                return currentConfig;
+            },
             
             storage: {
                 get: (key) => rpc(RPCMethod.StorageGet, key),
                 set: (key, val) => rpc(RPCMethod.StorageSet, key, val),
                 delete: (key) => rpc(RPCMethod.StorageDelete, key),
-                clear: () => rpc(RPCMethod.StorageClear)
+                clear: () => rpc(RPCMethod.StorageClear),
+                reload: () => rpc(RPCMethod.StorageReload)
             },
             
             emit: (event, payload) => rpc(RPCMethod.EventsEmit, event, payload),

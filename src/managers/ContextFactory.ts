@@ -9,8 +9,7 @@ export function createPluginContext(
     manager: PluginManager,
     plugin: IPlugin,
     resources: ResourceManager,
-    storage: IPluginStorage,
-    config: any
+    storage: IPluginStorage
 ): PluginContext {
     
     // We get the resource container directly.
@@ -28,7 +27,7 @@ export function createPluginContext(
     return {
         manager: manager,
         storage,
-        config,
+        get config() { return manager.getPluginConfig(plugin.name); },
         // Legacy support
         emit: <K extends keyof AppEvents>(event: K, payload: AppEvents[K]) => manager.emit(event, payload),
         on: <K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>) => {

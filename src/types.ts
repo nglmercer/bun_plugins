@@ -30,7 +30,9 @@ export enum RPCMethod {
     ManagerGetPlugin = 'manager:getPlugin',
     Log = 'log',
     NetworkFetch = 'network:fetch',
-    PermissionCheck = 'perm:check'
+    PermissionCheck = 'perm:check',
+    ConfigGet = 'config:get',
+    StorageReload = 'storage:reload'
 }
 
 export enum HookType {
@@ -70,6 +72,7 @@ export interface IPluginStorage {
   set<T>(key: string, value: T): Promise<void>;
   delete(key: string): Promise<void>;
   clear(): Promise<void>;
+  reload(): Promise<void>;
 }
 
 export interface Logger {

@@ -29,6 +29,7 @@ import { checkNetworkPermission, checkPermission as checkGeneralPermission } fro
 export class PluginManager extends EventEmitter implements IPluginManager {
   private plugins: Map<string, IPlugin> = new Map();
   private availablePlugins: Map<string, IPlugin> = new Map();
+  private configs: Map<string, Record<string, any>> = new Map();
   
   // Modules
   private resources: ResourceManager;
@@ -111,7 +112,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
     }
 
     // 4. Context Creation
-    const context = createPluginContext(this, plugin, this.resources, storage, config);
+    this.configs.set(plugin.name, config);
+    const context = createPluginContext(this, plugin, this.resources, storage);
 
     // 5. Setup Hooks with Performance Monitoring (Delegated to HooksManager via Builder)
     if (plugin.setup) {
@@ -275,6 +277,13 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                                 body: await response.text() 
                             };
                         }
+                        else if (method === RPCMethod.ConfigGet) {
+                            result = this.getPluginConfig(pluginName);
+                        }
+                        else if (method === RPCMethod.StorageReload) {
+                             await storage.reload();
+                             result = true;
+                        }
                        
                        worker.postMessage({ id, result });
                    } catch (e) {
@@ -386,6 +395,10 @@ export class PluginManager extends EventEmitter implements IPluginManager {
     return this.plugins.get(name);
   }
 
+  getPluginConfig(name: string): Record<string, any> {
+      return this.configs.get(name) || {};
+  }
+
   listPlugins(): string[] {
     return Array.from(this.plugins.keys());
   }
@@ -428,12 +441,30 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         console.warn("Failed to load global plugin config", e);
       }
 
-      const files = await readdir(directoryPath);
+      const entries = await readdir(directoryPath, { withFileTypes: true });
       this.availablePlugins.clear();
 
-      for (const file of files) {
-        if ((file.endsWith(".ts") || file.endsWith(".js")) && !file.endsWith(".d.ts")) {
-          const fullPath = join(directoryPath, file);
+      for (const entry of entries) {
+        let fullPath: string | null = null;
+        
+        if (entry.isDirectory()) {
+          const pluginDir = join(directoryPath, entry.name);
+          const pkgPath = join(pluginDir, "package.json");
+          if (existsSync(pkgPath)) {
+            // Auto-install dependencies if node_modules missing
+            await this.ensureDependenciesInstalled(pluginDir);
+            fullPath = pluginDir;
+          } else {
+            const distPath = join(pluginDir, "dist");
+            if (existsSync(distPath)) {
+              fullPath = distPath;
+            }
+          }
+        } else if ((entry.name.endsWith(".ts") || entry.name.endsWith(".js")) && !entry.name.endsWith(".d.ts")) {
+          fullPath = join(directoryPath, entry.name);
+        }
+
+        if (fullPath) {
           try {
             const module = await import(fullPath);
             for (const key in module) {
@@ -442,8 +473,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
               if (validation.valid) {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
               } else {
-                 const errorMsg = (validation).error;
-                 console.warn(`Skipping invalid plugin in ${file}: ${errorMsg}`);
+                 const errorMsg = (validation as any).error;
+                 console.warn(`Skipping invalid plugin item in ${entry.name}: ${errorMsg}`);
               }
             }
           } catch (err) {
@@ -629,5 +660,41 @@ export class PluginManager extends EventEmitter implements IPluginManager {
           };
       }
       return status;
+  }
+
+  private async ensureDependenciesInstalled(pluginPath: string): Promise<void> {
+    const nodeModulesPath = join(pluginPath, "node_modules");
+
+    if (!existsSync(nodeModulesPath)) {
+      // 1. Check if we are in production
+      const isProduction = process.env.NODE_ENV === "production";
+      
+      if (isProduction) {
+        console.warn(`[PluginManager] Warning: Plugin at ${pluginPath} is missing node_modules. Auto-install is disabled in production.`);
+        return;
+      }
+
+      // 2. Check if 'bun' CLI is even available in the system
+      const bunPath = Bun.which("bun");
+      if (!bunPath) {
+        console.warn(`[PluginManager] Warning: node_modules missing in ${pluginPath}, but 'bun' CLI was not found. Cannot auto-install.`);
+        return;
+      }
+
+      console.log(`[PluginManager] Development mode detected. node_modules missing in ${pluginPath}. Installing deps...`);
+      try {
+        const proc = Bun.spawn([bunPath, "install"], {
+          cwd: pluginPath,
+          stdout: "inherit",
+          stderr: "inherit",
+        });
+        const exitCode = await proc.exited;
+        if (exitCode !== 0) {
+          console.error(`[PluginManager] Failed to install dependencies for ${pluginPath}. Exit code: ${exitCode}`);
+        }
+      } catch (e) {
+        console.error(`[PluginManager] Error running bun install for ${pluginPath}:`, e);
+      }
+    }
   }
 }

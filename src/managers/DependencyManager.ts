@@ -39,6 +39,7 @@ export class DependencyManager {
                         // For pure topological sort of a batch, we just sort the batch.
                         // If A depends on B, and B is not in batch, we assume B is effectively "root" relative to this batch 
                         // (i.e., we don't add an edge to it within this graph).
+                        console.warn(`Plugin ${p.name} depends on missing plugin: ${depName}`);
                     }
                 }
             }

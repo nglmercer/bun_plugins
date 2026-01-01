@@ -1,0 +1,9 @@
+{
+  "name": "arktype-plugin",
+  "version": "1.0.0",
+  "description": "A plugin that uses ArkType as a local dependency",
+  "main": "index.ts",
+  "dependencies": {
+    "arktype": "latest"
+  }
+}
