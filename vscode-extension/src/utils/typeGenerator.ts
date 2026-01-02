@@ -89,11 +89,13 @@ export class PluginTypeGenerator {
       
       // If no metadata exists, regeneration is needed
       if (!fileExists(metadataPath)) {
+        console.log('[TypeGenerator] No metadata found, regeneration needed');
         return true;
       }
 
       const metadata = readJsonFile<{ plugins: any[]; lastGenerated: string }>(metadataPath);
       if (!metadata || !metadata.plugins) {
+        console.log('[TypeGenerator] Invalid metadata found, regeneration needed');
         return true;
       }
 
@@ -103,22 +105,31 @@ export class PluginTypeGenerator {
         
         // New plugin or plugin metadata changed
         if (!metaPlugin || this.hasPluginChanged(plugin, metaPlugin)) {
+          console.log(`[TypeGenerator] Plugin ${plugin.name} changed or is new, regeneration needed`);
           return true;
         }
 
         // Check if plugin file was modified
-        const pluginStats = fs.statSync(plugin.filePath);
-        if (metaPlugin.fileSize !== pluginStats.size || 
-            metaPlugin.modifiedTime !== pluginStats.mtime.getTime()) {
+        try {
+          const pluginStats = fs.statSync(plugin.filePath);
+          if (metaPlugin.fileSize !== pluginStats.size ||
+              metaPlugin.modifiedTime !== pluginStats.mtime.getTime()) {
+            console.log(`[TypeGenerator] Plugin file ${plugin.filePath} modified, regeneration needed`);
+            return true;
+          }
+        } catch (error) {
+          console.log(`[TypeGenerator] Plugin file ${plugin.filePath} not accessible, regeneration needed`);
           return true;
         }
       }
 
       // Check if plugins were deleted
       if (metadata.plugins.length !== plugins.length) {
+        console.log('[TypeGenerator] Plugin count changed, regeneration needed');
         return true;
       }
 
+      console.log('[TypeGenerator] No changes detected, skipping regeneration');
       return false;
     } catch (error) {
       // On any error, regenerate
@@ -198,12 +209,19 @@ export class PluginTypeGenerator {
       const typesPath = path.join(options.workspaceRoot, typesDir);
       
       // CRITICAL: Always create the directory, even if no plugins or errors
-      if (!fs.existsSync(typesPath)) {
-        fs.mkdirSync(typesPath, { recursive: true });
-        result.typesDirCreated = true;
-        if (options.verbose !== false) {
-          console.log(`✅ Created types directory: ${typesPath}`);
+      try {
+        if (!fs.existsSync(typesPath)) {
+          fs.mkdirSync(typesPath, { recursive: true });
+          result.typesDirCreated = true;
+          if (options.verbose !== false) {
+            console.log(`✅ Created types directory: ${typesPath}`);
+          }
         }
+      } catch (error) {
+        result.success = false;
+        result.errors.push(`Failed to create types directory: ${error instanceof Error ? error.message : String(error)}`);
+        result.duration = Date.now() - startTime;
+        return result;
       }
 
       // Check if regeneration is needed (unless forced)

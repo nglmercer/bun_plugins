@@ -24,6 +24,7 @@ import { analyzeText } from './utils/analyzer';
 import { PluginTypeGenerator } from './utils/typeGenerator';
 import { startAutoRegeneration, WatcherHandle } from './utils/fileWatcher';
 import * as path from 'path';
+import * as fs from 'fs';
 
 // Detectar el modo de transporte desde los argumentos de línea de comandos
 const args = process.argv.slice(2);
@@ -148,6 +149,13 @@ async function performInitialPluginScan(): Promise<void> {
   logInfo(`Performing initial plugin scan in ${workspaceRoot}...`);
   
   try {
+    // Check if plugins directory exists
+    const pluginsDir = path.join(workspaceRoot, 'plugins');
+    if (!fs.existsSync(pluginsDir)) {
+      logInfo(`Plugins directory not found at ${pluginsDir}, creating it...`);
+      fs.mkdirSync(pluginsDir, { recursive: true });
+    }
+
     const plugins = await scanPlugins(workspaceRoot, { logger: createLogger() });
     PluginRegistry.getInstance().update(plugins);
     logInfo(`Found ${plugins.length} plugins during initial scan`);
@@ -200,31 +208,45 @@ function startFileWatcher(): void {
   const logger = createLogger();
 
   try {
+    // Use a more robust file watching approach
+    const pluginsDir = path.join(workspaceRoot, 'plugins');
+    
+    if (!fs.existsSync(pluginsDir)) {
+      logInfo(`Plugins directory not found at ${pluginsDir}, skipping file watcher`);
+      return;
+    }
+
     fileWatcher = startAutoRegeneration(
       workspaceRoot,
       (root) => scanPlugins(root, { logger }),
       async (plugins) => {
         // Regenerate types when plugins change
         if (!workspaceRoot) return;
-        const typeGenerator = PluginTypeGenerator.getInstance();
-        const result = await typeGenerator.generateTypesWithValidation(plugins, {
-          workspaceRoot,
-          typesDir: '.bun-plugins-types',
-          updateTsConfig: false, // Don't update tsconfig on every change
-          validatePlugins: true,
-          generateDocs: true,
-          verbose: false
-        });
+        
+        try {
+          const typeGenerator = PluginTypeGenerator.getInstance();
+          const result = await typeGenerator.generateTypesWithValidation(plugins, {
+            workspaceRoot,
+            typesDir: '.bun-plugins-types',
+            updateTsConfig: false, // Don't update tsconfig on every change
+            validatePlugins: true,
+            generateDocs: true,
+            verbose: false
+          });
 
-        if (result.success) {
-          PluginRegistry.getInstance().update(plugins);
-          logInfo(`✅ Auto-regenerated types for ${result.pluginCount} plugins`);
-        } else {
-          logError('Auto-regeneration completed with errors');
+          if (result.success) {
+            PluginRegistry.getInstance().update(plugins);
+            logInfo(`✅ Auto-regenerated types for ${result.pluginCount} plugins`);
+          } else {
+            logError('Auto-regeneration completed with errors');
+            result.errors.forEach(err => logError(err));
+          }
+        } catch (error) {
+          logError('Error during auto-regeneration', error);
         }
       },
       {
-        debounceMs: 500,
+        debounceMs: 1000, // Increased debounce to avoid excessive regeneration
         onError: (error) => logError('File watcher error', error),
         logger
       }

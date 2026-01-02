@@ -75,15 +75,18 @@ export class PluginFileWatcher {
     const pluginsDir = path.join(workspaceRoot, 'plugins');
     if (fileExists(pluginsDir)) {
       this.watchDirectory(pluginsDir, workspaceRoot, opts);
+    } else {
+      // Create plugins directory if it doesn't exist
+      try {
+        fs.mkdirSync(pluginsDir, { recursive: true });
+        opts.logger.info(`Created plugins directory: ${pluginsDir}`);
+        this.watchDirectory(pluginsDir, workspaceRoot, opts);
+      } catch (error) {
+        opts.onError(new Error(`Failed to create plugins directory: ${error instanceof Error ? error.message : String(error)}`));
+      }
     }
 
-    // Watch type generation directory
-    const typesDir = path.join(workspaceRoot, '.bun-plugins-types');
-    if (!fileExists(typesDir)) {
-      fs.mkdirSync(typesDir, { recursive: true });
-    }
-
-    // Watch for tsconfig.json changes
+    // Watch for tsconfig.json changes (optional)
     const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
     if (fileExists(tsconfigPath)) {
       this.watchFile(tsconfigPath, workspaceRoot, opts);
@@ -155,8 +158,13 @@ export class PluginFileWatcher {
 
     const fullPath = path.join(dirPath, filename);
 
+    // Only process TypeScript and JavaScript files
+    if (!filename.endsWith('.ts') && !filename.endsWith('.js')) {
+      return;
+    }
+
     // Check ignore patterns
-    const shouldIgnore = options.ignorePatterns.some(pattern => 
+    const shouldIgnore = options.ignorePatterns.some(pattern =>
       pattern.test(fullPath) || pattern.test(filename)
     );
 
@@ -173,6 +181,12 @@ export class PluginFileWatcher {
       options.logger.info(`📝 File changed: ${fullPath}`);
       
       try {
+        // Verify file still exists before scanning
+        if (!fs.existsSync(fullPath)) {
+          options.logger.info(`File ${fullPath} no longer exists, skipping scan`);
+          return;
+        }
+
         // Scan for plugins
         const plugins = await this.scanPluginsFn(workspaceRoot);
         
