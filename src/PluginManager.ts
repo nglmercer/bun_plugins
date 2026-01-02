@@ -3,12 +3,12 @@ import { EventEmitter } from "node:events";
 import { readdir, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { watch, existsSync } from "node:fs";
-import { 
-    type IPlugin, 
-    type PluginContext, 
+import {
+    type IPlugin,
+    type PluginContext,
     type AppEvents,
     type BunWorkerOptions as WorkerOptions,
-    type OnResolveArgs, 
+    type OnResolveArgs,
     type OnLoadArgs,
     type IPluginManager,
     WorkerMessageType,
@@ -16,6 +16,7 @@ import {
     RPCMethod,
     HookType
 } from "./types";
+import { PluginTypeByName, KnownPluginNames, PluginWithSharedApi } from "./pluginRegistry";
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
 import * as semver from "semver";
@@ -252,7 +253,9 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                        else if (method === RPCMethod.ManagerGetPlugin) {
                            const targetName = args[0];
                            const p = this.getPlugin(targetName);
-                           result = p?.getSharedApi ? p.getSharedApi() : undefined;
+                           result = p && typeof p === 'object' && 'getSharedApi' in p && typeof p.getSharedApi === 'function'
+                               ? p.getSharedApi()
+                               : undefined;
                        }
                        else if (method === RPCMethod.Log) {
                            const level = args[0] as 'info' | 'warn' | 'error';
@@ -398,8 +401,18 @@ export class PluginManager extends EventEmitter implements IPluginManager {
     }
   }
 
-  getPlugin(name: string): IPlugin | undefined {
-    return this.plugins.get(name);
+  getPlugin(name: string): IPlugin | undefined;
+  getPlugin<TName extends string>(name: TName): TName extends KnownPluginNames ? PluginTypeByName<TName> : IPlugin | undefined;
+  getPlugin<TName extends string>(name: TName): IPlugin | undefined {
+    const plugin = this.plugins.get(name);
+    if (!plugin) return undefined;
+    
+    // Si el plugin tiene getSharedApi, retornar la API compartida
+    if (plugin.getSharedApi) {
+      return plugin.getSharedApi() as any;
+    }
+    
+    return plugin;
   }
 
   getPluginConfig(name: string): Record<string, any> {

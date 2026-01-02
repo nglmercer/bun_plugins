@@ -14,16 +14,16 @@ export class LifecycleDemoPlugin extends Plugin {
     version = "1.0.0";
     
     // Default config
-    defaultConfig = {
+    override defaultConfig = {
         showWelcome: true,
         message: "Application Lifecycle Started!"
     };
 
-    onLoad(context: PluginContext) {
+    override onLoad(context: PluginContext) {
         context.log.info("LifecycleDemo plugin loaded");
     }
 
-    setup(build: import("../src").PluginBuilder) {
+    override setup(build: import("../src").PluginBuilder) {
         // Access config passed to setup
         const config = build.config;
 

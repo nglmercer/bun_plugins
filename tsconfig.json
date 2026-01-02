@@ -28,8 +28,11 @@
     "downlevelIteration": true,
     "lib": ["ESNext", "DOM"],
 
-    "types": ["bun"]
+    "types": ["bun"],
+    
+    // Incluir tipos generados por el LSP
+    "typeRoots": ["./node_modules/@types", "./.bun-plugins-types"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "plugins/**/*", ".bun-plugins-types/**/*"],
   "exclude": ["node_modules", "dist"]
 }

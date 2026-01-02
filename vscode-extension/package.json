@@ -1,0 +1,55 @@
+{
+  "name": "bun-plugins-lsp",
+  "displayName": "Bun Plugins LSP",
+  "description": "Language Server Protocol for Bun Plugins context, emitters, and events",
+  "version": "0.0.1",
+  "publisher": "memelser",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:javascript"
+  ],
+  "main": "./dist/client.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Bun Plugins LSP",
+      "properties": {
+        "bunPlugins.maxNumberOfProblems": {
+          "scope": "resource",
+          "type": "number",
+          "default": 100,
+          "description": "Controls the maximum number of problems produced by the server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile",
+    "test": "bun test ../tests/lsp",
+    "test:server": "bun test ../tests/lsp/lsp-server.test.ts",
+    "test:optimized": "bun test ../tests/lsp/lsp-server-optimized.test.ts",
+    "test:final": "bun test ../tests/lsp/lsp-server-final.test.ts",
+    "test:basic": "bun test ../tests/lsp/lsp-basic.test.ts",
+    "test:all": "bun test ../tests/lsp"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11",
+    "arktype": "2.0.0-rc.26",
+    "typescript": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0"
+  }
+}

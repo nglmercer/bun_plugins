@@ -28,6 +28,7 @@
     "build": "bun tsc",
     "test": "bun test ./tests",
     "typecheck": "bun tsc --noEmit",
+    "generate-types": "bun run scripts/generate-types.ts",
     "prepublishOnly": "bun run build"
   },
   "devDependencies": {

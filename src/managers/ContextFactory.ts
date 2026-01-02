@@ -3,6 +3,7 @@ import type { PluginContext, IPlugin, AppEvents, EventCallback } from "../types"
 import type { PluginManager } from "../PluginManager";
 import type { ResourceManager } from "./ResourceManager";
 import { type IPluginStorage } from "../types";
+import { PluginTypeByName, KnownPluginNames } from "../pluginRegistry";
 import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "../utils/security";
 import { logger } from "../logger";
 
@@ -44,10 +45,18 @@ export function createPluginContext(
             }
         },
 
-        getPlugin: (name: string) => {
+        getPlugin: (<TName extends string>(name: TName) => {
             const p = manager.getPlugin(name);
-            return p?.getSharedApi ? p.getSharedApi() : undefined;
-        },
+            if (!p) return undefined;
+            
+            // Si el plugin tiene getSharedApi, retornar la API compartida
+            if (typeof p === 'object' && 'getSharedApi' in p && typeof p.getSharedApi === 'function') {
+                return p.getSharedApi();
+            }
+            
+            // Si es un plugin directo (no API compartida), retornar el plugin completo
+            return p;
+        }) as PluginContext['getPlugin'],
         log: logger.getLogger(plugin.name),
         createWorker: (url, options?) => {
             // Use the manager's worker factory to allow proper mocking in tests

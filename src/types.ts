@@ -1,5 +1,4 @@
 import { z } from "zod";
-//import { }
 export enum WorkerMessageType {
     RPC_CALL = 'RPC_CALL',
     HOOK_CALL = 'HOOK_CALL',
@@ -127,9 +126,10 @@ export interface PluginContext {
 
   storage: IPluginStorage;
   config: Record<string, any>;
-  manager: IPluginManager; 
+  manager: IPluginManager;
   
   // Access to other plugins' shared APIs
+  getPlugin<TName extends keyof PluginTypeRegistry>(name: TName): PluginTypeRegistry[TName] | undefined;
   getPlugin(name: string): unknown | undefined;
 
   // Scoped Logger
