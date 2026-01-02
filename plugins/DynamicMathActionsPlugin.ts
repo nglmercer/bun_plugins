@@ -3,17 +3,19 @@
  * Se carga automáticamente y registra acciones en ActionRegistry
  */
 
-import type { IPlugin, PluginContext } from "../src";
+import { definePlugin } from "../src";
+import { Plugin, PluginContext } from "../src";
+import { PluginWithSharedApi } from "../src/pluginRegistry";
 
-export class DynamicMathActionsPlugin implements IPlugin {
+export class MathPlugin extends Plugin implements PluginWithSharedApi<any> {
   name = "dynamic-math-actions";
   version = "1.0.0";
 
-  dependencies = {
+  override dependencies = {
     "action-registry": "1.0.0"
   };
 
-  onLoad(context: PluginContext) {
+  override onLoad(context: PluginContext) {
     this.registerActions(context);
   }
 
@@ -55,7 +57,7 @@ export class DynamicMathActionsPlugin implements IPlugin {
     }
   }
 
-  onUnload() {
+  override onUnload() {
     // Cleanup is handled by the plugin manager
   }
 

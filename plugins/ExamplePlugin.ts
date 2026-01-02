@@ -11,7 +11,7 @@ export default definePlugin({
         
         // Get the math plugin - types are inferred automatically from PluginTypeRegistry
         const mathPlugin = context.getPlugin('math-plugin');
-
+        
         if (!mathPlugin) {
             context.log.error("Math plugin not found");
             return;

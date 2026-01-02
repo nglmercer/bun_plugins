@@ -46,23 +46,65 @@ let hasWorkspaceFolderCapability = false;
 let workspaceRoot: string | undefined;
 let isInitialized = false;
 let fileWatcher: WatcherHandle | null = null;
+let shutdownRequested = false;
 
 // Logging mejorado - solo usar LSP console para no interferir con stdio
 function logInfo(message: string): void {
-  connection.console.info(`[BunPluginsLSP] ${message}`);
+  if (!shutdownRequested) {
+    connection.console.info(`[BunPluginsLSP] ${message}`);
+  }
 }
 
 function logError(message: string, error?: any): void {
-  const errorMessage = error ? `${message}: ${error.message || error}` : message;
-  connection.console.error(`[BunPluginsLSP] ${errorMessage}`);
+  if (!shutdownRequested) {
+    const errorMessage = error ? `${message}: ${error.message || error}` : message;
+    connection.console.error(`[BunPluginsLSP] ${errorMessage}`);
+  }
 }
 
 // Create a logger that matches the interface expected by scanner and fileWatcher
 const createLogger = () => ({
   info: (message: string) => logInfo(message),
-  warn: (message: string) => connection.console.warn(`[BunPluginsLSP] ${message}`),
+  warn: (message: string) => {
+    if (!shutdownRequested) {
+      connection.console.warn(`[BunPluginsLSP] ${message}`);
+    }
+  },
   error: (message: string) => logError(message)
 });
+
+/**
+ * Find the correct workspace root by looking for plugins directory
+ */
+function findCorrectWorkspaceRoot(initialRoot: string): string {
+  // If initial root contains plugins directory, use it
+  if (fs.existsSync(path.join(initialRoot, 'plugins'))) {
+    return initialRoot;
+  }
+  
+  // If we're in vscode-extension directory, go up one level
+  if (path.basename(initialRoot) === 'vscode-extension') {
+    const parentDir = path.dirname(initialRoot);
+    if (fs.existsSync(path.join(parentDir, 'plugins'))) {
+      logInfo(`Found plugins directory in parent: ${parentDir}`);
+      return parentDir;
+    }
+  }
+  
+  // Look for plugins directory in parent directories
+  let currentDir = initialRoot;
+  for (let i = 0; i < 3; i++) { // Check up to 3 levels up
+    const parentDir = path.dirname(currentDir);
+    if (fs.existsSync(path.join(parentDir, 'plugins'))) {
+      logInfo(`Found plugins directory in ancestor: ${parentDir}`);
+      return parentDir;
+    }
+    currentDir = parentDir;
+  }
+  
+  logInfo(`Using original workspace root: ${initialRoot}`);
+  return initialRoot;
+}
 
 // Manejar inicialización
 connection.onInitialize((params: InitializeParams) => {
@@ -83,6 +125,11 @@ connection.onInitialize((params: InitializeParams) => {
       workspaceRoot = workspaceRoot.substring(1);
     }
     workspaceRoot = decodeURIComponent(workspaceRoot);
+  }
+
+  // Find correct workspace root
+  if (workspaceRoot) {
+    workspaceRoot = findCorrectWorkspaceRoot(workspaceRoot);
   }
 
   logInfo(`Workspace root: ${workspaceRoot}`);
@@ -260,6 +307,8 @@ function startFileWatcher(): void {
 
 // Manejar cambios en documentos
 documents.onDidChangeContent(async (change) => {
+  if (shutdownRequested) return;
+  
   try {
     const text = change.document.getText();
     const filePath = change.document.uri.replace('file:///', '').replace('file://', '');
@@ -280,6 +329,8 @@ documents.onDidChangeContent(async (change) => {
 
 // Manejar cambios en archivos observados
 connection.onDidChangeWatchedFiles(async (change) => {
+  if (shutdownRequested) return;
+  
   logInfo('Watched files changed, triggering plugin rescan...');
   
   if (workspaceRoot) {
@@ -320,6 +371,8 @@ connection.onDidChangeWatchedFiles(async (change) => {
 // Manejar solicitudes de autocompletado
 connection.onCompletion(
   (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+    if (shutdownRequested) return [];
+    
     try {
       const doc = documents.get(textDocumentPosition.textDocument.uri);
       if (!doc) return [];
@@ -452,16 +505,37 @@ function getInterfaceName(pluginName: string): string {
 
 connection.onCompletionResolve((item) => item);
 
-// Manejar cierre de conexión
-connection.onShutdown(() => {
+// Manejar cierre de conexión - FIXED VERSION
+connection.onShutdown(async () => {
   logInfo('LSP server shutting down...');
+  shutdownRequested = true;
   isInitialized = false;
   
   // Stop file watcher
   if (fileWatcher) {
-    fileWatcher.stop();
-    fileWatcher = null;
+    try {
+      fileWatcher.stop();
+      fileWatcher = null;
+      logInfo('File watcher stopped successfully');
+    } catch (error) {
+      logError('Error stopping file watcher', error);
+    }
   }
+  
+  // Stop document listeners (TextDocuments doesn't have dispose method)
+  try {
+    logInfo('Document listeners will be stopped with connection');
+  } catch (error) {
+    logError('Error with document listeners', error);
+  }
+  
+  logInfo('LSP server shutdown complete');
+  
+  // Force exit after a short delay to prevent hanging
+  setTimeout(() => {
+    logInfo('Forcing process exit');
+    process.exit(0);
+  }, 100);
 });
 
 // Configurar listeners
@@ -470,5 +544,16 @@ connection.listen();
 
 // Log final solo si la conexión está establecida
 if (connection) {
-  logInfo('LSP server setup complete - final version');
+  logInfo('LSP server setup complete - fixed version');
 }
+
+// Handle process termination signals
+process.on('SIGTERM', () => {
+  logInfo('Received SIGTERM, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logInfo('Received SIGINT, shutting down gracefully...');
+  process.exit(0);
+});
