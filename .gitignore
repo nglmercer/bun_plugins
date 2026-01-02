@@ -38,4 +38,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 *.vsix
 examples/**/*.json
 .bun-plugins-types/
+temp_bundle/
 package-lock.json

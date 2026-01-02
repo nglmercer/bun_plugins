@@ -22,3 +22,4 @@ LSP_FIX_SUMMARY.md
 .gitignore
 docs/**
 examples/**
+temp_bundle/**

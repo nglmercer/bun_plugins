@@ -20,7 +20,7 @@ export function activate(context: ExtensionContext) {
 
   // The server is implemented in node
   const serverModule = context.asAbsolutePath(
-    path.join('dist', 'server.js')
+    path.join('dist', 'server.bundle.js')
   );
 
   // Server options with better error handling

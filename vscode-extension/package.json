@@ -19,7 +19,7 @@
     "onLanguage:typescript",
     "onLanguage:javascript"
   ],
-  "main": "./dist/client.js",
+  "main": "./dist/client.bundle.js",
   "contributes": {
     "configuration": {
       "type": "object",
@@ -35,10 +35,11 @@
     }
   },
   "scripts": {
-    "compile": "tsc -b",
-    "watch": "tsc -b -w",
+    "compile": "bun build.ts",
+    "build": "bun build.ts",
+    "watch": "bun build.ts --watch",
     "package": "vsce package",
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run build",
     "test": "bun test ../tests/lsp",
     "test:server": "bun test ../tests/lsp/lsp-server.test.ts",
     "test:optimized": "bun test ../tests/lsp/lsp-server-optimized.test.ts",

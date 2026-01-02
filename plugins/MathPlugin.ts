@@ -32,7 +32,7 @@ export class MathPlugin extends Plugin implements PluginWithSharedApi<MathPlugin
     };
   }
 
-  // onUnload is optional in base class, removing empty cleanup
+  // onUnload is optional in base class, removing empty cleanup 
 }
 
 // Exportar una instancia por defecto
