@@ -37,7 +37,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "semver": "^7.7.3",
-    "zod": "^4.2.1"
+    "arktype": "^2.1.0",
+    "semver": "^7.7.3"
   }
 }
