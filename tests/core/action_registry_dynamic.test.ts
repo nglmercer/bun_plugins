@@ -15,7 +15,7 @@ describe("Action Registry Dynamic Loading", () => {
     expect(registryPlugin).toBeDefined();
     
     // Verificar que getSharedApi funciona
-    const sharedApi = registryPlugin?.getSharedApi?.();
+    const sharedApi = manager.getSharedApi("action-registry");
     expect(sharedApi).toBeDefined();
     expect(typeof sharedApi).toBe("object");
     
@@ -34,24 +34,23 @@ describe("Action Registry Dynamic Loading", () => {
     await manager.loadPluginsFromDirectory(pluginsDir);
     
     // Obtener el ActionRegistry
-    const registryPlugin = manager.getPlugin("action-registry") as any;
-    const registry = registryPlugin?.getSharedApi?.();
+    const sharedApi = manager.getSharedApi("action-registry");
     
-    if (!registry) {
+    if (!sharedApi) {
       return;
     }
     
     // Verificar que las acciones se hayan registrado
-    const actions = registry.listActions();
+    const actions = sharedApi.listActions();
     
     // Verificar acciones específicas si existen
-    if (registry.hasAction("sum")) {
-      const result = registry.executeAction("sum", 5, 3);
+    if (sharedApi.hasAction("sum")) {
+      const result = sharedApi.executeAction("sum", 5, 3);
       expect(result).toBe(8);
     }
     
-    if (registry.hasAction("uppercase")) {
-      const result = registry.executeAction("uppercase", "hello");
+    if (sharedApi.hasAction("uppercase")) {
+      const result = sharedApi.executeAction("uppercase", "hello");
       expect(result).toBe("HELLO");
     }
   });

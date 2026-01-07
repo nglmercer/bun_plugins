@@ -404,15 +404,16 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   getPlugin(name: string): IPlugin | undefined;
   getPlugin<TName extends string>(name: TName): TName extends KnownPluginNames ? PluginTypeByName<TName> : IPlugin | undefined;
   getPlugin<TName extends string>(name: TName): IPlugin | undefined {
+    return this.plugins.get(name);
+  }
+
+  getSharedApi<T = any>(name: string): T | undefined {
     const plugin = this.plugins.get(name);
     if (!plugin) return undefined;
-    
-    // Si el plugin tiene getSharedApi, retornar la API compartida
     if (plugin.getSharedApi) {
-      return plugin.getSharedApi() as any;
+      return plugin.getSharedApi() as T;
     }
-    
-    return plugin;
+    return undefined;
   }
 
   getPluginConfig(name: string): Record<string, any> {
