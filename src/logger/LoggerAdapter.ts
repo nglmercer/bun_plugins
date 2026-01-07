@@ -174,7 +174,7 @@ export class ColorfulConsoleLogger extends BaseConsoleLogger {
     if (options.levelColors) this.levelColors = { ...this.levelColors, ...options.levelColors };
   }
 
-  private getEmoji(level: string): string {
+  public getEmoji(level: string): string {
     if (!this.showEmoji) return '';
     const emojis: Record<string, string> = { info: 'ℹ️', warn: '⚠️', error: '❌', debug: '🐛' };
     return emojis[level] || '';
@@ -183,12 +183,10 @@ export class ColorfulConsoleLogger extends BaseConsoleLogger {
   private formatMessage(level: string, msg: string, context?: string): string {
     const timestamp = this.formatTimestamp();
     const timestampStr = timestamp ? `[${timestamp}] ` : '';
-    const emoji = this.getEmoji(level);
     const levelColor = this.levelColors[level] || '#FFFFFF';
     const levelStr = this.colorize(`[${level.toUpperCase()}]`, levelColor);
-    const emojiStr = emoji ? `${emoji} ` : '';
     const contextStr = context ? `${this.colorize(`[${context}]`, this.contextColor)} ` : '';
-    return `${timestampStr}${emojiStr}${levelStr} ${contextStr}${msg}`;
+    return `${timestampStr}${levelStr} ${contextStr}${msg}`;
   }
 
   info(msg: string, ...args: any[]): void {
