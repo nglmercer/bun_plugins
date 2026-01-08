@@ -1,6 +1,6 @@
 // Global type definitions for the application
 // Importar tipos generados por el LSP
-import type { PluginTypeRegistry as GeneratedPluginTypeRegistry } from "../.bun-plugins-types/plugin-types";
+import type { PluginTypeRegistry as GeneratedPluginTypeRegistry } from "../plugin-types/index";
 
 declare global {
     // Registro de tipos de plugins para el sistema LSP

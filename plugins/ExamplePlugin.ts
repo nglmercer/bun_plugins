@@ -1,6 +1,6 @@
 
 import { definePlugin } from "../src";
-
+import * as types from "../plugin-types"
 export default definePlugin({
     name: "edge",
     version: "1.0.0",

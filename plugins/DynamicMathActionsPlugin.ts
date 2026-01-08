@@ -6,7 +6,7 @@
 import { definePlugin } from "../src";
 import { Plugin, PluginContext } from "../src";
 
-export class MathPlugin extends Plugin {
+export class MathPlugin2 extends Plugin {
   name = "dynamic-math-actions";
   version = "1.0.0";
 

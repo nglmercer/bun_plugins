@@ -6,6 +6,7 @@ import { ArkTypeConverter } from "./arktype_converter";
 
 /**
  * Main generator for handling conversion between classes and arktype schemas.
+ * Provides dynamic typing and autocomplete without static KnownPluginNames.
  */
 export class PluginTypeGenerator {
   private pluginsDir: string;
@@ -54,7 +55,7 @@ export class PluginTypeGenerator {
   async scanPlugins(): Promise<PluginTypeInfo[]> {
     const pluginFiles = await this.scanDirectory(this.pluginsDir);
     const plugins: PluginTypeInfo[] = [];
-    const seenClasses = new Set<string>(); // Track class names to avoid duplicates
+    const seenClasses = new Set<string>();
     
     for (const filePath of pluginFiles) {
       try {
@@ -112,9 +113,7 @@ export class PluginTypeGenerator {
     
     const visit = (node: ts.Node) => {
       if (ts.isClassDeclaration(node)) {
-        // Visit all declarations within the class
         node.members.forEach(member => {
-          // Properties
           if (ts.isPropertyDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
             const propName = member.name.text;
             const propInfo = this.extractPropertyType(member, sourceFile);
@@ -123,7 +122,6 @@ export class PluginTypeGenerator {
             }
           }
           
-          // Methods
           if (ts.isMethodDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
             const methodInfo = this.extractMethodInfo(member, sourceFile);
             if (methodInfo) {
@@ -131,7 +129,6 @@ export class PluginTypeGenerator {
             }
           }
           
-          // Handle constructor parameters
           if (ts.isConstructorDeclaration(member)) {
             member.parameters.forEach(param => {
               if (ts.isIdentifier(param.name) && param.type) {
@@ -156,13 +153,9 @@ export class PluginTypeGenerator {
     return properties;
   }
   
-  /**
-   * Extracts information from a method.
-   */
   private extractMethodInfo(node: ts.MethodDeclaration, sourceFile: ts.SourceFile): PropertyInfo | null {
     const name = node.name.getText(sourceFile);
     
-    // Exclude lifecycle methods and private methods
     if (name.startsWith("_") || name.startsWith("#")) {
       return null;
     }
@@ -195,9 +188,6 @@ export class PluginTypeGenerator {
     };
   }
   
-  /**
-   * Extracts the type of a property.
-   */
   private extractPropertyType(node: ts.PropertyDeclaration, sourceFile: ts.SourceFile): PropertyInfo | null {
     if (!node.name || !ts.isIdentifier(node.name)) {
       return null;
@@ -219,7 +209,6 @@ export class PluginTypeGenerator {
       isArray = this.isArrayType(node.type, sourceFile);
       nestedType = this.extractNestedType(node.type, sourceFile);
     } else if (node.initializer) {
-      // Infer type from initializer
       type = this.inferTypeFromInitializer(node.initializer, sourceFile);
     }
     
@@ -232,9 +221,6 @@ export class PluginTypeGenerator {
     };
   }
   
-  /**
-   * Checks if a type is an array.
-   */
   private isArrayType(typeNode: ts.TypeNode, sourceFile: ts.SourceFile): boolean {
     if (ts.isArrayTypeNode(typeNode)) {
       return true;
@@ -245,14 +231,9 @@ export class PluginTypeGenerator {
     return false;
   }
   
-  /**
-   * Extracts nested types (objects, interfaces).
-   */
   private extractNestedType(typeNode: ts.TypeNode, sourceFile: ts.SourceFile): ArkTypeSchemaInfo | undefined {
     if (ts.isTypeReferenceNode(typeNode)) {
       const typeName = typeNode.typeName.getText(sourceFile);
-      
-      // Find the definition of this type in the file
       const nestedProperties = this.findTypeProperties(typeName, sourceFile);
       
       if (nestedProperties.length > 0) {
@@ -291,9 +272,6 @@ export class PluginTypeGenerator {
     return undefined;
   }
   
-  /**
-   * Finds the properties of a type in the source file.
-   */
   private findTypeProperties(typeName: string, sourceFile: ts.SourceFile): PropertyInfo[] {
     const properties: PropertyInfo[] = [];
     
@@ -335,9 +313,6 @@ export class PluginTypeGenerator {
     return properties;
   }
   
-  /**
-   * Maps type names to normalized names.
-   */
   private mapTypeName(type: string): string {
     const typeMap: Record<string, string> = {
       "string": "string",
@@ -356,14 +331,10 @@ export class PluginTypeGenerator {
       "Record": "Record"
     };
     
-    // Extract just the type name without modifiers
     const baseType = type.split("<")[0]?.split("|")[0]?.trim() || type;
     return typeMap[baseType] || baseType;
   }
   
-  /**
-   * Infers the type from an initializer.
-   */
   private inferTypeFromInitializer(initializer: ts.Expression, sourceFile: ts.SourceFile): string {
     if (ts.isStringLiteral(initializer)) {
       return "string";
@@ -380,9 +351,6 @@ export class PluginTypeGenerator {
     return "any";
   }
   
-  /**
-   * Gets the symbol at a location.
-   */
   private getSymbolAtLocation(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
     const typeChecker = this.getTypeChecker();
     const symbol = typeChecker.getSymbolAtLocation(node);
@@ -397,14 +365,11 @@ export class PluginTypeGenerator {
     return undefined;
   }
   
-  /**
-   * Gets the TypeScript type checker.
-   */
   private getTypeChecker(): ts.TypeChecker {
     const program = ts.createProgram([join(process.cwd(), "src/types/plugin_generator.ts")], this.compilerOptions);
     return program.getTypeChecker();
   }
-  
+
   private parseTypeScriptPlugin(filePath: string, source: string): PluginTypeInfo | null {
     const sourceFile = ts.createSourceFile(
       filePath,
@@ -425,7 +390,6 @@ export class PluginTypeGenerator {
         if (node.name) {
           className = node.name.text;
           
-          // Extract properties from the class to generate arktype schema
           const converter = new PluginTypeGenerator({
             pluginsDir: "",
             outputDir: ""
@@ -543,25 +507,37 @@ export class PluginTypeGenerator {
     return null;
   }
   
+  /**
+   * Generates dynamic type declarations using a factory pattern.
+   * No static KnownPluginNames - types are computed at compile time.
+   */
   generateDeclarations(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
-    const pluginNames = plugins.map(p => `  | "${p.name}"`).join("\n");
-    
-    const apiTypeMappings = plugins.map(p => {
+    // Dynamic plugin factory map - each plugin is indexed by name
+    const pluginFactoryEntries = plugins.map(p => {
       const apiType = p.apiInterface || baseApiInterface;
-      return `  T extends "${p.name}" ? ${apiType} :`;
-    }).join("\n");
-    
-    const classTypeMappings = plugins.map(p => {
-      return `  T extends "${p.name}" ? typeof ${p.className} :`;
-    }).join("\n");
-    
-    const pluginList = plugins.map(p => {
-      const deps = p.dependencies 
-        ? `, dependencies: ${JSON.stringify(p.dependencies)}`
-        : "";
-      return `  { name: "${p.name}"; version: "${p.version}"; class: typeof ${p.className }${deps} }`;
+      return `    "${p.name}": {
+      name: "${p.name}";
+      version: "${p.version}";
+      class: typeof ${p.className};
+      api: ${apiType};
+      dependencies?: ${p.dependencies ? `Record<${JSON.stringify(Object.keys(p.dependencies))}, string>` : "undefined"};
+    }`;
     }).join(",\n");
-    
+
+    // Dynamic type lookup using the factory map
+    const typeLookups = plugins.map(p => {
+      const apiType = p.apiInterface || baseApiInterface;
+      return `    T extends "${p.name}" ? ${apiType} :`;
+    }).join("\n");
+
+    // Dynamic class lookups
+    const classLookups = plugins.map(p => {
+      return `    T extends "${p.name}" ? typeof ${p.className} :`;
+    }).join("\n");
+
+    // Plugin names as tuple for autocomplete
+    const pluginNamesTuple = plugins.map(p => `"${p.name}"`).join(" | ");
+
     return `import type { IPlugin } from "${this.packageName}/types";
 
 declare global {
@@ -574,30 +550,75 @@ declare global {
       loaded?: string;
     }
 
-    type KnownPluginNames = 
-${pluginNames};
+    /**
+     * Dynamic plugin factory map - all plugins are indexed here.
+     * This replaces the static KnownPluginNames type.
+     */
+    interface PluginFactory {
+${pluginFactoryEntries}
+    }
 
-    type PluginApiType<T extends KnownPluginNames> =
-${apiTypeMappings}
-      ${baseApiInterface};
+    /**
+     * Registry that aggregates all plugin types for global availability.
+     * This enables autocomplete without explicit imports.
+     */
+    interface PluginTypeRegistry {
+      /** All discovered plugin names */
+      PluginNames: PluginNames;
+      /** Get API type for a plugin */
+      GetPluginApi: GetPluginApi;
+      /** Get class type for a plugin */
+      GetPluginClass: GetPluginClass;
+      /** Type-safe plugin factory */
+      PluginFactory: PluginFactory;
+      /** Check if a plugin name is valid */
+      IsValidPlugin: IsValidPlugin;
+    }
 
-    type PluginClassType<T extends KnownPluginNames> =
-${classTypeMappings}
-      IPlugin;
+    /**
+     * Union type of all plugin names for autocomplete.
+     * Generated dynamically from discovered plugins.
+     */
+    type PluginNames = ${pluginNamesTuple};
 
-    type AllPlugins = readonly [
-${pluginList}
-    ];
+    /**
+     * Type lookup using the factory map for autocomplete.
+     */
+    type PluginApiType<T extends PluginNames> = 
+      T extends keyof PluginFactory ? PluginFactory[T]["api"] : ${baseApiInterface};
 
-    type GetPluginApi<T extends KnownPluginNames> = PluginApiType<T>;
-    type GetPluginClass<T extends KnownPluginNames> = PluginClassType<T>;
+    /**
+     * Class type lookup using the factory map.
+     */
+    type PluginClassType<T extends PluginNames> = 
+      T extends keyof PluginFactory ? PluginFactory[T]["class"] : IPlugin;
+
+    /**
+     * Get the API type for a specific plugin.
+     */
+    type GetPluginApi<T extends PluginNames> = PluginApiType<T>;
+
+    /**
+     * Get the class type for a specific plugin.
+     */
+    type GetPluginClass<T extends PluginNames> = PluginClassType<T>;
+
+    /**
+     * Helper to check if a plugin name is valid.
+     */
+    type IsValidPlugin<T extends string> = T extends PluginNames ? true : false;
+
+    /**
+     * Type-safe plugin retrieval from the factory.
+     */
+    type PluginFromFactory<T extends PluginNames> = PluginFactory[T];
   }
 }
 
 export {};
 `;
   }
-   
+    
   generateModuleExports(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
     const pluginExports = plugins.map(p => {
       const relPath = relative(this.outputDir, p.filePath);
@@ -606,7 +627,16 @@ export {};
     
     return `import type { IPlugin } from "${this.packageName}/types";
 
-export type { KnownPluginNames, PluginApiType, PluginClassType, AllPlugins, GetPluginApi, GetPluginClass } from "./plugin-registry";
+export type { 
+  PluginNames, 
+  PluginApiType, 
+  PluginClassType, 
+  GetPluginApi, 
+  GetPluginClass,
+  IsValidPlugin,
+  PluginFromFactory,
+  PluginFactory
+} from "./plugin-registry";
 
 export interface ${baseApiInterface} {
   name: string;
@@ -619,7 +649,7 @@ export interface ${baseApiInterface} {
 ${pluginExports}
 `;
   }
-   
+    
   async generate(): Promise<PluginTypeInfo[]> {
     await mkdir(this.outputDir, { recursive: true });
     
@@ -640,14 +670,11 @@ ${pluginExports}
     
     return plugins;
   }
-   
+    
   async getPlugins(): Promise<PluginTypeInfo[]> {
     return this.scanPlugins();
   }
-   
-  /**
-   * Static method to directly convert a class to arktype schema.
-   */
+    
   static async convertClassToArkType(classFilePath: string): Promise<ArkTypeSchemaInfo | null> {
     try {
       const content = await readFile(classFilePath, "utf-8");
@@ -657,14 +684,14 @@ ${pluginExports}
         ts.ScriptTarget.Latest,
         true
       );
-       
+        
       let className = "";
       let properties: PropertyInfo[] = [];
-       
+        
       const visit = (node: ts.Node) => {
         if (ts.isClassDeclaration(node) && node.name) {
           className = node.name.text;
-           
+            
           const tempGenerator = new PluginTypeGenerator({
             pluginsDir: "",
             outputDir: ""
@@ -673,13 +700,13 @@ ${pluginExports}
         }
         ts.forEachChild(node, visit);
       };
-       
+        
       ts.forEachChild(sourceFile, visit);
-       
+        
       if (!className || properties.length === 0) {
         return null;
       }
-       
+        
       const schemaName = className + "Schema";
       return {
         schemaName,
@@ -699,7 +726,7 @@ ${pluginExports}
  */
 export async function generatePluginTypes(
   pluginsDir: string = join(process.cwd(), "plugins"),
-  outputDir: string = join(process.cwd(), ".bun-plugins-types"),
+  outputDir: string = join(process.cwd(), "plugin-types"),
   packageName: string = "bun_plugins"
 ): Promise<PluginTypeInfo[]> {
   const generator = new PluginTypeGenerator({ pluginsDir, outputDir, packageName });

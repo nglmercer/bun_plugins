@@ -31,8 +31,8 @@
     "types": ["bun"],
     
     // Incluir tipos generados por el LSP
-    "typeRoots": ["./node_modules/@types", "./.bun-plugins-types"]
+    "typeRoots": ["./node_modules/@types", "./plugin-types"]
   },
-  "include": ["src/**/*", "plugins/**/*", ".bun-plugins-types/**/*"],
+  "include": ["src/**/*", "plugins/**/*", "plugin-types/**/*"],
   "exclude": ["node_modules", "dist"]
 }
