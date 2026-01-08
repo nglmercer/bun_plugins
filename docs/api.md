@@ -8,6 +8,63 @@ The main class to handle plugin lifecycle and coordination.
 
 `new PluginManager(storageRoot?: string, options?: PluginManagerOptions)`
 
+### API Registration Methods
+
+- `registerApi(pluginName: string, api: any): void`: Registers a plugin's API manually for other plugins to access.
+- `getPluginApi(pluginName: string): any | undefined`: Retrieves the registered API of a plugin.
+
+#### API Registration Pattern
+
+Plugins can now register their APIs in two ways:
+
+1. **Manual Registration**: Use `context.registerApi(api)` in the `onLoad` method
+   ```typescript
+   async onLoad(context: PluginContext) {
+     context.registerApi({
+       myMethod: () => { /* ... */ },
+       myProperty: 'value'
+     });
+   }
+   ```
+
+2. **Automatic Registration**: Provide a `sharedApi` property in the plugin definition (for declarative plugins)
+   ```typescript
+   const createPlugin = (def: PluginDefinition): IPlugin => ({
+     name: def.name,
+     version: def.version,
+     sharedApi: {
+       myMethod: () => { /* ... */ },
+       myProperty: 'value'
+     }
+   });
+   ```
+
+#### Accessing Plugin APIs
+
+Other plugins can access a plugin's API using `context.getPlugin(name)` or `manager.getPluginApi(name)`:
+
+```typescript
+// In a plugin's onLoad method
+const registry = await context.getPlugin('action-registry');
+if (registry) {
+  registry.executeAction('sum', 5, 3);
+}
+
+// Or directly from the manager
+const registry = manager.getPluginApi('action-registry');
+if (registry) {
+  registry.executeAction('sum', 5, 3);
+}
+```
+
+#### Benefits of the New System
+
+- **No Dependency on Optional Methods**: Plugins don't need to implement `getApi()` anymore
+- **Explicit Registration**: APIs are registered explicitly, making the code clearer and more maintainable
+- **Better Type Safety**: The API registration is explicit and type-safe
+- **Flexibility**: Plugins can choose when and how to register their APIs
+- **Backward Compatibility**: The old `getApi()` method is still supported for existing plugins
+
 ### Methods
 
 - `register(plugin: IPlugin): Promise<void>`: Manually register a plugin. Triggers `onLoad` and then `onStarted`.
@@ -45,7 +102,8 @@ interface IPlugin {
   onUnload(): Promise<void> | void;
 
   // IPC
-  getApi?(): unknown;
+  registerApi(pluginName: string, api: any): void;
+  getPluginApi(pluginName: string): any | undefined;
 
   // Bun/Esbuild Hooks
   setup?(build: PluginBuilder): void | Promise<void>;

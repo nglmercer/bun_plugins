@@ -23,7 +23,6 @@ const pluginSchemaDefinition = z.object({
   onLoad: z.function(),
   onStarted: z.function().optional(),
   onUnload: z.function().optional(),
-  getApi: z.function().optional(),
   setup: z.function().optional(),
 });
 

@@ -109,6 +109,10 @@ export interface IPluginManager {
   getMetrics(): any;
   getPluginStatus(): Record<string, any>;
 
+  // API Registration Methods
+  registerApi(pluginName: string, api: any): void;
+  getPluginApi(pluginName: string): any | undefined;
+
   // Bun-like Aliases
   use(plugin: IPlugin): Promise<void>;
   plugin(plugin: IPlugin): Promise<void>;
@@ -154,6 +158,9 @@ export interface PluginContext {
   // Access to other plugins' shared APIs
   // Returns the plugin instance asynchronously (supports both main process and worker contexts)
   getPlugin(name: string): Promise<any | undefined>;
+  
+  // Register this plugin's API for other plugins to access
+  registerApi(api: any): void;
 
   // Scoped Logger
   log: Logger;
@@ -239,9 +246,6 @@ export interface IPlugin {
   onStarted?: () => Promise<void> | void; // New Lifecycle Hook
   onUnload(): Promise<void> | void;
   onReload?: (context: PluginContext) => Promise<void> | void;
-
-  // Method to expose a shared API to other plugins
-  getApi?: () => unknown;
 
   // 4. System Configuration Hook (Bun/esbuild style)
   setup?: (build: PluginBuilder) => void | Promise<void>;

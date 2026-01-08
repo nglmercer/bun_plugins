@@ -48,6 +48,10 @@ export const createPlugin = (def: PluginDefinition): IPlugin => ({
     if (def.onLoad) {
       await def.onLoad(context);
     }
+    // Register shared API if provided
+    if (def.sharedApi) {
+      context.registerApi(def.sharedApi);
+    }
   },
 
   async onUnload() {
@@ -55,10 +59,6 @@ export const createPlugin = (def: PluginDefinition): IPlugin => ({
       await def.onUnload();
     }
   },
-
-  getApi() {
-    return def.sharedApi || { name: def.name, version: def.version };
-  }
 });
 
 // Specialized builder for action registry plugins
@@ -84,14 +84,16 @@ export const createActionPlugin = (def: ActionPluginDefinition): IPlugin => {
       if (def.onLoad) {
         await def.onLoad(context);
       }
-    },
-    sharedApi: {
-      name: def.name,
-      version: def.version,
-      actions: [
-        ...(def.actionCategories?.flatMap(cat => cat.actions.map((a: any) => a.name)) || []),
-        ...(def.customActions?.map(a => a.name) || [])
-      ]
+      
+      // Register shared API
+      context.registerApi({
+        name: def.name,
+        version: def.version,
+        actions: [
+          ...(def.actionCategories?.flatMap(cat => cat.actions.map((a: any) => a.name)) || []),
+          ...(def.customActions?.map(a => a.name) || [])
+        ]
+      });
     }
   });
 };

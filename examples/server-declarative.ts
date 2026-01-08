@@ -92,11 +92,11 @@ const createServerPlugin = () => ({
         return { success: true, plugin: data.name };
       },
       list_actions: async () => {
-        const registry = context.manager.getPlugin('action-registry')?.getApi();
+        const registry = context.manager.getPluginApi('action-registry');
         return registry ? registry.list() : [];
       },
       execute_action: async (data: any) => {
-        const registry = context.manager.getPlugin('action-registry')?.getApi();
+        const registry = context.manager.getPluginApi('action-registry');
         if (!registry) throw new Error('Action registry not found');
         return registry.execute(data.action, ...data.args);
       }
@@ -201,7 +201,7 @@ const createActionRegistryPlugin = () => ({
     // Register some example actions
     registry.register({
       name: 'greet',
-      handler: (name: string) => `Hello, ${name}!`
+      handler: (name: string) => `Hello, Hello, ${name}!`
     });
     
     registry.register({
@@ -217,16 +217,13 @@ const createActionRegistryPlugin = () => ({
       }
     });
     
-    context.registry = registry;
+    // Register the registry as the shared API
+    context.registerApi(registry);
   },
   
   async onUnload() {
     console.log("Action registry plugin unloaded");
   },
-  
-  getApi() {
-    return (this as any).context?.registry;
-  }
 });
 
 // Main demonstration

@@ -16,8 +16,8 @@ describe("Action Registry Pattern", () => {
     await manager.register(mathPlugin);
     await manager.register(textPlugin);
     
-    // Get the registry from the plugin
-    const registry = registryPlugin.getApi() as any;
+    // Get the registry API from the manager
+    const registry = manager.getPluginApi("action-registry");
     
     // Verify actions are registered
     expect(registry.hasAction("sum")).toBe(true);
@@ -42,7 +42,7 @@ describe("Action Registry Pattern", () => {
     const registryPlugin = new ActionRegistryPlugin();
     await manager.register(registryPlugin);
     
-    const registry = registryPlugin.getApi() as any;
+    const registry = manager.getPluginApi("action-registry");
     
     // Test non-existent action
     expect(() => {
@@ -58,7 +58,7 @@ describe("Action Registry Pattern", () => {
     const mathPlugin = new MathActionsPlugin();
     await manager.register(mathPlugin);
     
-    const registry = registryPlugin.getApi() as any;
+    const registry = manager.getPluginApi("action-registry");
     const actions = registry.listActions();
     
     expect(actions).toContain("sum");
@@ -122,7 +122,7 @@ describe("Action Registry Pattern", () => {
     const registryPlugin = new ActionRegistryPlugin();
     await manager.register(registryPlugin);
     
-    const registry = registryPlugin.getApi() as any;
+    const registry = manager.getPluginApi("action-registry");
     
     // Register some actions manually
     registry.registerAction("test-action", () => "test-result");
@@ -144,7 +144,7 @@ describe("Action Registry Pattern", () => {
     await manager.register(registryPlugin);
     
     // Register an async action manually
-    const registry = registryPlugin.getApi() as any;
+    const registry = manager.getPluginApi("action-registry");
     registry.registerAction("asyncAction", async (ms: number) => {
       await new Promise(resolve => setTimeout(resolve, ms));
       return `Completed after ${ms}ms`;

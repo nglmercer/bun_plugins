@@ -37,25 +37,23 @@ export class ActionRegistryPlugin implements IPlugin {
 
   constructor() {
     this.actionRegistry = new ActionRegistry();
-    this.getApi = this.getApi.bind(this);
   }
 
   onLoad(context: PluginContext) {
     context.log.info("ActionRegistry initialized");
-  }
-
-  onUnload() {
-    // Cleanup is handled by the plugin manager
-  }
-
-  getApi() {
-    return {
+    
+    // Register the API manually using the new system
+    context.registerApi({
       registerAction: this.actionRegistry.registerAction.bind(this.actionRegistry),
       executeAction: this.actionRegistry.executeAction.bind(this.actionRegistry),
       listActions: this.actionRegistry.listActions.bind(this.actionRegistry),
       hasAction: this.actionRegistry.hasAction.bind(this.actionRegistry),
       actions: this.actionRegistry.listActions()
-    };
+    });
+  }
+
+  onUnload() {
+    // Cleanup is handled by the plugin manager
   }
 }
 

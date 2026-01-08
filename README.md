@@ -182,6 +182,74 @@ export class ConsumerPlugin implements IPlugin {
 
 ---
 
-## 📜 License
+## 🎯 Type Safety & Autocompletion
+
+The plugin system provides **multiple ways** to achieve type safety and autocompletion:
+
+### 📝 Declaration Merging (Recommended)
+
+Extend the `PluginFactory` interface to enable full autocompletion for your plugins:
+
+```typescript
+// Create a file: types/plugins.d.ts
+declare module "bun_plugins" {
+  export interface PluginFactory {
+    "my-plugin": {
+      name: "my-plugin";
+      version: "1.0.0";
+      class: MyPlugin;
+      api: MyPluginApi;
+    };
+  }
+}
+```
+
+**Benefits:**
+- ✅ Full autocompletion in your IDE
+- ✅ Type-safe plugin access
+- ✅ No runtime overhead
+- ✅ Works with TypeScript's declaration merging
+
+### 🔹 Type Assertions
+
+Use generic type assertions when you need specific types:
+
+```typescript
+// Without type assertion (returns any)
+const api = await context.getPlugin("my-plugin");
+
+// With type assertion (returns MyPluginApi)
+const api = await context.getPlugin<MyPluginApi>("my-plugin");
+```
+
+**Benefits:**
+- ✅ No need for declaration files
+- ✅ Explicit type control
+- ⚠️ Requires manual type specification
+
+### 🎓 Combining Both Approaches
+
+For the best experience, use **declaration merging** for plugins you control, and **type assertions** for third-party plugins:
+
+```typescript
+// 1. Extend PluginFactory for your plugins (types/plugins.d.ts)
+declare module "bun_plugins" {
+  export interface PluginFactory {
+    "my-plugin": { name: "my-plugin"; version: "1.0.0"; class: MyPlugin; api: MyPluginApi; };
+  }
+}
+
+// 2. Use without type assertion (autocompletion works!)
+const myApi = await context.getPlugin("my-plugin");
+
+// 3. Use type assertion for third-party plugins
+const thirdPartyApi = await context.getPlugin<ThirdPartyApi>("third-party-plugin");
+```
+
+See [`examples/types-extension-example.d.ts`](examples/types-extension-example.d.ts) for a complete example.
+
+---
+
+##  License
 
 MIT © [memelser](https://github.com/nglmercer)

@@ -31,6 +31,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   private plugins: Map<string, IPlugin> = new Map();
   private availablePlugins: Map<string, IPlugin> = new Map();
   private configs: Map<string, Record<string, any>> = new Map();
+  private pluginApis: Map<string, any> = new Map();
   
   // Modules
   private resources: ResourceManager;
@@ -268,10 +269,15 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                        }
                        else if (method === RPCMethod.ManagerGetPlugin) {
                            const targetName = args[0];
-                           const p = this.getPlugin(targetName);
-                           result = p && typeof p === 'object' && 'getApi' in p && typeof p.getApi === 'function'
-                               ? p.getApi()
-                               : undefined;
+                           // Get the registered API
+                           const api = this.getPluginApi(targetName);
+                           if (api) {
+                               result = api;
+                           } else {
+                               // Fallback to the plugin itself
+                               const p = this.getPlugin(targetName);
+                               result = api !== undefined ? api : p || undefined;
+                           }
                        }
                        else if (method === RPCMethod.Log) {
                            const level = args[0] as 'info' | 'warn' | 'error';
@@ -343,30 +349,36 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                      const { metadata } = msg;
                      pluginMetadata = metadata; // Update permission cache (redundant if MANIFEST sent but safe)
                     const proxyPlugin: IPlugin = {
-                        name: metadata.name,
-                        version: metadata.version || "0.0.0",
-                        description: metadata.description,
-                        author: metadata.author,
-                        permissions: metadata.permissions,
-                        allowedDomains: metadata.allowedDomains,
-                        onLoad: () => {}, 
-                        onStarted: () => {
-                            worker.postMessage({ type: WorkerMessageType.START_UP });
-                        },
-                        onUnload: async () => {
-                            worker.postMessage({ type: WorkerMessageType.UNLOAD });
-                            // Give the worker some time to clean up
-                            await new Promise(r => setTimeout(r, 200));
-                            worker.terminate();
-                            // Clear pending hooks on unload
-                            for (const pending of Array.from(pendingHooks.values())) {
-                                pending.reject(new Error("Plugin unloaded"));
-                            }
-                            pendingHooks.clear();
-                        },
-                    };
-                    this.plugins.set(metadata.name, proxyPlugin);
-                    logger.getLogger("PluginManager").info(`Isolated Plugin ${metadata.name} loaded in worker.`);
+                       name: metadata.name,
+                       version: metadata.version || "0.0.0",
+                       description: metadata.description,
+                       author: metadata.author,
+                       permissions: metadata.permissions,
+                       allowedDomains: metadata.allowedDomains,
+                       onLoad: () => {},
+                       onStarted: () => {
+                           worker.postMessage({ type: WorkerMessageType.START_UP });
+                       },
+                       onUnload: async () => {
+                           worker.postMessage({ type: WorkerMessageType.UNLOAD });
+                           // Give the worker some time to clean up
+                           await new Promise(r => setTimeout(r, 200));
+                           worker.terminate();
+                           // Clear pending hooks on unload
+                           for (const pending of Array.from(pendingHooks.values())) {
+                               pending.reject(new Error("Plugin unloaded"));
+                           }
+                           pendingHooks.clear();
+                       },
+                   };
+                   this.plugins.set(metadata.name, proxyPlugin);
+                   
+                   // Register API if provided in metadata
+                   if (metadata.api) {
+                       this.registerApi(metadata.name, metadata.api);
+                   }
+                   
+                   logger.getLogger("PluginManager").info(`Isolated Plugin ${metadata.name} loaded in worker.`);
                     resolve();
                }
                 else if (msg.type === WorkerMessageType.LOAD_ERROR) {
@@ -413,6 +425,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         this.plugins.delete(pluginName);
         this.resources.cleanup(pluginName, this);
         this.hooksManager.cleanup(pluginName);
+        this.unregisterApi(pluginName);
         logger.getLogger("PluginManager").info(`Plugin ${pluginName} unloaded.`);
     }
   }
@@ -423,12 +436,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   }
 
   getApi<T = any>(name: string): T | undefined {
-    const plugin = this.plugins.get(name);
-    if (!plugin) return undefined;
-    if (plugin.getApi) {
-      return plugin.getApi() as T;
-    }
-    return undefined;
+    // Get the registered API
+    return this.getPluginApi(name) as T;
   }
 
   getPluginConfig(name: string): Record<string, any> {
@@ -437,6 +446,21 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
   listPlugins(): string[] {
     return Array.from(this.plugins.keys());
+  }
+
+  // Método para registrar manualmente la API de un plugin
+  registerApi(pluginName: string, api: any): void {
+    this.pluginApis.set(pluginName, api);
+  }
+
+  // Método para obtener la API de un plugin
+  getPluginApi(pluginName: string): any | undefined {
+    return this.pluginApis.get(pluginName);
+  }
+
+  // Método para limpiar la API de un plugin al desregistrarlo
+  private unregisterApi(pluginName: string): void {
+    this.pluginApis.delete(pluginName);
   }
 
   override emit<K extends keyof AppEvents>(eventName: K, payload: AppEvents[K]): boolean;

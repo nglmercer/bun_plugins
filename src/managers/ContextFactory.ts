@@ -78,20 +78,16 @@ export function createPluginContext(
       return Promise.resolve((() => {
         const p = manager.getPlugin(name);
         if (!p) return undefined;
-
-        // Si el plugin tiene getApi, retornar la API compartida
-        if (
-          typeof p === "object" &&
-          "getApi" in p &&
-          typeof p.getApi === "function"
-        ) {
-          return p.getApi();
-        }
-
-        // Si es un plugin directo (no API compartida), retornar el plugin completo
+        // Try to get the registered API first
+        const api = manager.getPluginApi(name);
+        if (api) return api;
+        // Fallback to the plugin itself
         return p;
       })());
     }) as PluginContext["getPlugin"],
+    registerApi: (api: any) => {
+      manager.registerApi(plugin.name, api);
+    },
     log: logger.getLogger(plugin.name),
     createWorker: (url, options?) => {
       // Use the manager's worker factory to allow proper mocking in tests
