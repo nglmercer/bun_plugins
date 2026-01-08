@@ -1,6 +1,6 @@
 {
   "name": "bun_plugins",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A powerful and secure plugin system for Bun applications",
   "author": "memelser <nglmercer@gmail.com>",
   "repository": {
@@ -20,8 +20,8 @@
   ],
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
     }
   },
   "scripts": {
@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "arktype": "^2.1.0",
-    "semver": "^7.7.3"
+    "semver": "^7.7.3",
+    "zod": "^4.3.5"
   }
 }
