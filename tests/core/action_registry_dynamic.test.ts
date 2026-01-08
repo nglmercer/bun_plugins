@@ -3,7 +3,7 @@ import { PluginManager } from "../../src/PluginManager";
 import { join } from "node:path";
 
 describe("Action Registry Dynamic Loading", () => {
-  it("should load ActionRegistryPlugin and verify getSharedApi works", async () => {
+  it("should load ActionRegistryPlugin and verify getApi works", async () => {
     const manager = new PluginManager();
     
     // Cargar plugins dinámicamente
@@ -14,8 +14,8 @@ describe("Action Registry Dynamic Loading", () => {
     const registryPlugin = manager.getPlugin("action-registry");
     expect(registryPlugin).toBeDefined();
     
-    // Verificar que getSharedApi funciona
-    const sharedApi = manager.getSharedApi("action-registry");
+    // Verificar que getApi funciona
+    const sharedApi = manager.getApi("action-registry");
     expect(sharedApi).toBeDefined();
     expect(typeof sharedApi).toBe("object");
     
@@ -34,7 +34,7 @@ describe("Action Registry Dynamic Loading", () => {
     await manager.loadPluginsFromDirectory(pluginsDir);
     
     // Obtener el ActionRegistry
-    const sharedApi = manager.getSharedApi("action-registry");
+    const sharedApi = manager.getApi("action-registry");
     
     if (!sharedApi) {
       return;
@@ -67,8 +67,8 @@ describe("Action Registry Dynamic Loading", () => {
     // Verificar qué plugins tienen acciones
     for (const pluginName of loadedPlugins) {
       const plugin = manager.getPlugin(pluginName);
-      if (plugin?.getSharedApi) {
-        const api = plugin.getSharedApi() as any;
+      if (plugin?.getApi) {
+        const api = plugin.getApi() as any;
         if (api && api.actions && Array.isArray(api.actions)) {
           expect(api.actions.length).toBeGreaterThan(0);
         }

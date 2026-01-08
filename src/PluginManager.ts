@@ -269,8 +269,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                        else if (method === RPCMethod.ManagerGetPlugin) {
                            const targetName = args[0];
                            const p = this.getPlugin(targetName);
-                           result = p && typeof p === 'object' && 'getSharedApi' in p && typeof p.getSharedApi === 'function'
-                               ? p.getSharedApi()
+                           result = p && typeof p === 'object' && 'getApi' in p && typeof p.getApi === 'function'
+                               ? p.getApi()
                                : undefined;
                        }
                        else if (method === RPCMethod.Log) {
@@ -422,11 +422,11 @@ export class PluginManager extends EventEmitter implements IPluginManager {
     return this.plugins.get(name);
   }
 
-  getSharedApi<T = any>(name: string): T | undefined {
+  getApi<T = any>(name: string): T | undefined {
     const plugin = this.plugins.get(name);
     if (!plugin) return undefined;
-    if (plugin.getSharedApi) {
-      return plugin.getSharedApi() as T;
+    if (plugin.getApi) {
+      return plugin.getApi() as T;
     }
     return undefined;
   }

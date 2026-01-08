@@ -46,8 +46,8 @@ export class ActionRegistryPlugin implements IPlugin {
   constructor() {
     this.actionRegistry = new ActionRegistry();
     
-    // Enlazar el método getSharedApi para mantener el contexto correcto
-    this.getSharedApi = this.getSharedApi.bind(this);
+    // Enlazar el método getApi para mantener el contexto correcto
+    this.getApi = this.getApi.bind(this);
   }
 
   onLoad(context: PluginContext) {
@@ -59,7 +59,7 @@ export class ActionRegistryPlugin implements IPlugin {
   }
 
   // Exponemos el ActionRegistry como API compartida
-  getSharedApi() {
+  getApi() {
     return {
       registerAction: this.actionRegistry.registerAction.bind(this.actionRegistry),
       executeAction: this.actionRegistry.executeAction.bind(this.actionRegistry),

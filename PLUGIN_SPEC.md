@@ -98,7 +98,7 @@ To support active modification of system behavior (compatible with Bun/esbuild),
 
 Plugins can interact via:
 
-- **Shared API**: `context.getPlugin(name)` returns the `getSharedApi()` result of another plugin.
+- **Shared API**: `context.getPlugin(name)` returns the `getApi()` result of another plugin.
 - **Event Bus**:
   - Global Pub/Sub system.
   - Channels: `file:changed`, `plugin:start`, etc.
@@ -169,7 +169,7 @@ interface IPlugin {
   setup?: (build: PluginBuilder) => void | Promise<void>;
 
   // Shared API (IPC)
-  getSharedApi?: () => unknown;
+  getApi?: () => unknown;
 }
 ```
 

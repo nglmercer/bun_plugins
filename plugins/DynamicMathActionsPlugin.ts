@@ -61,7 +61,7 @@ export class MathPlugin2 extends Plugin {
   }
 
   // Informar qué acciones proporciona este plugin
-  getSharedApi() {
+  getApi() {
     return {
       name: this.name,
       actions: ["sum", "multiply", "power", "factorial"],

@@ -245,7 +245,7 @@ export interface IPlugin {
   onReload?: (context: PluginContext) => Promise<void> | void;
 
   // Method to expose a shared API to other plugins
-  getSharedApi?: () => unknown;
+  getApi?: () => unknown;
 
   // 4. System Configuration Hook (Bun/esbuild style)
   setup?: (build: PluginBuilder) => void | Promise<void>;

@@ -450,7 +450,7 @@ export class PluginTypeGenerator {
 
       if (ts.isMethodDeclaration(node)) {
         const name = node.name.getText(sourceFile);
-        if (name === "getSharedApi" && node.type) {
+        if (name === "getApi" && node.type) {
           const returnType = node.type.getText(sourceFile);
           const match = returnType.match(/:\s*(\w+Api)/);
           if (match) {
@@ -501,7 +501,7 @@ export class PluginTypeGenerator {
     const versionMatch = source.match(/version\s*=\s*["']([^"']+)["']/);
     const version = versionMatch?.[1] || "1.0.0";
     
-    const hasSharedApi = /getSharedApi\s*\(/.test(source);
+    const hasSharedApi = /getApi\s*\(/.test(source);
     
     if (!name) return null;
     
@@ -534,7 +534,7 @@ export class PluginTypeGenerator {
    * The API type includes:
    * - Base plugin properties (name, version)
    * - Public methods from the class
-   * - Shared API methods if getSharedApi is defined
+   * - Shared API methods if getApi is defined
    */
   generateDeclarations(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
     // Dynamic plugin factory map - each plugin is indexed by name

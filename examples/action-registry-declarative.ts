@@ -112,10 +112,10 @@ const demonstrateDeclarativeActionRegistry = async () => {
   
   // Get the registry
   const registryPluginInstance = manager.getPlugin("action-registry");
-  if (!registryPluginInstance || !registryPluginInstance.getSharedApi) {
+  if (!registryPluginInstance || !registryPluginInstance.getApi) {
     throw new Error("Registry plugin not found");
   }
-  const registry = registryPluginInstance.getSharedApi() as ActionRegistry;
+  const registry = registryPluginInstance.getApi() as ActionRegistry;
   
   console.log("\nAvailable Actions:");
   registry.list().forEach(action => console.log(`  - ${action}`));
@@ -135,8 +135,8 @@ const demonstrateDeclarativeActionRegistry = async () => {
   console.log("\nPlugin Information:");
   ["math-actions", "text-actions", "utility-actions"].forEach(pluginName => {
     const plugin = manager.getPlugin(pluginName);
-    if (plugin && plugin.getSharedApi) {
-      const api = plugin.getSharedApi() as any;
+    if (plugin && plugin.getApi) {
+      const api = plugin.getApi() as any;
       if (api?.actions) {
         console.log(`  ${pluginName}: ${api.actions.join(", ")}`);
       }

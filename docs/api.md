@@ -45,7 +45,7 @@ interface IPlugin {
   onUnload(): Promise<void> | void;
 
   // IPC
-  getSharedApi?(): unknown;
+  getApi?(): unknown;
 
   // Bun/Esbuild Hooks
   setup?(build: PluginBuilder): void | Promise<void>;

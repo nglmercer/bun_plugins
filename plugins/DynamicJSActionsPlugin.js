@@ -53,7 +53,7 @@ export class DynamicJSActionsPlugin {
   }
 
   // Informar qué acciones proporciona este plugin
-  getSharedApi() {
+  getApi() {
     return {
       name: this.name,
       actions: ["js-greet", "js-random-int", "js-reverse-words", "js-count-vowels"],

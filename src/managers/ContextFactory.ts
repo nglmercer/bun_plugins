@@ -78,13 +78,13 @@ export function createPluginContext(
       const p = manager.getPlugin(name);
       if (!p) return undefined;
 
-      // Si el plugin tiene getSharedApi, retornar la API compartida
+      // Si el plugin tiene getApi, retornar la API compartida
       if (
         typeof p === "object" &&
-        "getSharedApi" in p &&
-        typeof p.getSharedApi === "function"
+        "getApi" in p &&
+        typeof p.getApi === "function"
       ) {
-        return p.getSharedApi();
+        return p.getApi();
       }
 
       // Si es un plugin directo (no API compartida), retornar el plugin completo

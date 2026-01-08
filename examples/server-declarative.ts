@@ -92,11 +92,11 @@ const createServerPlugin = () => ({
         return { success: true, plugin: data.name };
       },
       list_actions: async () => {
-        const registry = context.manager.getPlugin('action-registry')?.getSharedApi();
+        const registry = context.manager.getPlugin('action-registry')?.getApi();
         return registry ? registry.list() : [];
       },
       execute_action: async (data: any) => {
-        const registry = context.manager.getPlugin('action-registry')?.getSharedApi();
+        const registry = context.manager.getPlugin('action-registry')?.getApi();
         if (!registry) throw new Error('Action registry not found');
         return registry.execute(data.action, ...data.args);
       }
@@ -224,7 +224,7 @@ const createActionRegistryPlugin = () => ({
     console.log("Action registry plugin unloaded");
   },
   
-  getSharedApi() {
+  getApi() {
     return (this as any).context?.registry;
   }
 });

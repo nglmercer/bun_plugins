@@ -24,7 +24,7 @@ export class MathPlugin extends Plugin {
   }
 
   // Exponer la API compartida
-  getSharedApi(): MathPluginApi {
+  getApi(): MathPluginApi {
     return {
       add: this.add.bind(this),
       multiply: this.multiply.bind(this)

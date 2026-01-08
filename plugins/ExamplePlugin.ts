@@ -20,8 +20,8 @@ export default definePlugin({
         context.log.info(`Math result via API: ${result}`);
         
         // recomendado
-/*         // Usar getSharedApi() - más seguro y encapsulado
-        const mathApi = mathPlugin.getSharedApi?.() as {
+/*         // Usar getApi() - más seguro y encapsulado
+        const mathApi = mathPlugin.getApi?.() as {
             add(a: number, b: number): number;
             multiply(a: number, b: number): number;
         };

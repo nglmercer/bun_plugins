@@ -58,7 +58,7 @@ export class DynamicTextActionsPlugin implements IPlugin {
   }
 
   // Informar qué acciones proporciona este plugin
-  getSharedApi() {
+  getApi() {
     return {
       name: this.name,
       actions: ["uppercase", "lowercase", "reverse", "wordCount", "capitalizeWords"],

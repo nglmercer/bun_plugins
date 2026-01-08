@@ -47,7 +47,7 @@ This document tracks the implementation status of features defined in `PLUGIN_SP
 
 ## 8. IPC (Inter-Plugin Communication)
 
-- [x] **Shared API** (`getSharedApi`) - _Implemented_
+- [x] **Shared API** (`getApi`) - _Implemented_
 - [x] **Access Method** (`context.getPlugin()`) - _Implemented_
 
 ## 9. Observability

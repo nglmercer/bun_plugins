@@ -163,7 +163,7 @@ Plugins can share APIs with each other safely:
 // Plugin A: Exposes an API
 export class ProviderPlugin implements IPlugin {
   name = "db-provider";
-  getSharedApi() {
+  getApi() {
     return {
       query: (q: string) => `Result for ${q}`,
     };

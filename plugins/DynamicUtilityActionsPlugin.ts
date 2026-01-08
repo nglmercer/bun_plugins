@@ -76,7 +76,7 @@ export class DynamicUtilityActionsPlugin implements IPlugin {
   }
 
   // Informar qué acciones proporciona este plugin
-  getSharedApi() {
+  getApi() {
     return {
       name: this.name,
       actions: ["random", "timestamp", "delay", "uuid", "formatDate"],

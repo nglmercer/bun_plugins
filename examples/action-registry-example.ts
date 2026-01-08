@@ -37,7 +37,7 @@ export class ActionRegistryPlugin implements IPlugin {
 
   constructor() {
     this.actionRegistry = new ActionRegistry();
-    this.getSharedApi = this.getSharedApi.bind(this);
+    this.getApi = this.getApi.bind(this);
   }
 
   onLoad(context: PluginContext) {
@@ -48,7 +48,7 @@ export class ActionRegistryPlugin implements IPlugin {
     // Cleanup is handled by the plugin manager
   }
 
-  getSharedApi() {
+  getApi() {
     return {
       registerAction: this.actionRegistry.registerAction.bind(this.actionRegistry),
       executeAction: this.actionRegistry.executeAction.bind(this.actionRegistry),

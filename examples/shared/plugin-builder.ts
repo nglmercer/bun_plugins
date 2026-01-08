@@ -56,7 +56,7 @@ export const createPlugin = (def: PluginDefinition): IPlugin => ({
     }
   },
 
-  getSharedApi() {
+  getApi() {
     return def.sharedApi || { name: def.name, version: def.version };
   }
 });
