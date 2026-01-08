@@ -129,12 +129,29 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
     // 6. Lifecycle onLoad
     try {
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Plugin ${plugin.name} timed out (${this.pluginLoadTimeout}ms)`)), this.pluginLoadTimeout)
-      );
+      let completed = false;
+      let timeoutError: Error | null = null;
+      
+      const timeoutId = setTimeout(() => {
+        if (!completed) {
+          completed = true;
+          timeoutError = new Error(`Plugin ${plugin.name} timed out (${this.pluginLoadTimeout}ms)`);
+        }
+      }, this.pluginLoadTimeout);
       
       const start = performance.now();
-      await Promise.race([plugin.onLoad(context), timeoutPromise]);
+      try {
+        await plugin.onLoad(context);
+      } finally {
+        completed = true;
+        clearTimeout(timeoutId);
+      }
+      
+      // Check if timeout triggered
+      if (timeoutError) {
+        throw timeoutError;
+      }
+      
       const duration = performance.now() - start;
 
       this.plugins.set(plugin.name, plugin);

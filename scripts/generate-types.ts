@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 async function main() {
   const pluginsDir = join(process.cwd(), "plugins");
-  const outputDir = join(process.cwd(), ".bun-plugins-types");
+  const outputDir = join(process.cwd(), "plugins");
   
   console.log("Generating plugin types...");
   console.log(`Plugins directory: ${pluginsDir}`);
