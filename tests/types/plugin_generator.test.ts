@@ -126,40 +126,6 @@ describe("PluginTypeGenerator", () => {
     });
   });
 
-  describe("generateArkTypeSchemas", () => {
-    it("should generate empty content for no plugins", () => {
-      const generator = new PluginTypeGenerator({
-        pluginsDir: tempDir,
-        outputDir: join(tempDir, "output")
-      });
-
-      const result = generator.generateArkTypeSchemas([]);
-
-      expect(result).toContain("import { type } from \"arktype\"");
-    });
-
-    it("should generate schemas for plugins with arkTypeSchema", async () => {
-      const testPlugin = `export class SchemaPlugin {
-        name = "schema-plugin";
-        version = "1.0.0";
-        id: number = 0;
-      }`;
-
-      await writeFile(join(tempDir, "SchemaPlugin.ts"), testPlugin);
-
-      const generator = new PluginTypeGenerator({
-        pluginsDir: tempDir,
-        outputDir: join(tempDir, "output")
-      });
-
-      const plugins = await generator.scanPlugins();
-      const result = generator.generateArkTypeSchemas(plugins);
-
-      expect(result).toContain("SchemaPlugin");
-      expect(result).toContain("type({");
-    });
-  });
-
   describe("generateDeclarations", () => {
     it("should generate declarations with plugin names", async () => {
       // Create isolated directory to avoid fs-plugin timeout
@@ -270,15 +236,12 @@ describe("PluginTypeGenerator", () => {
       // Verify output files were created
       const dtsPath = join(outputDir, "plugin-registry.d.ts");
       const indexPath = join(outputDir, "index.d.ts");
-      const arkTypePath = join(outputDir, "arktype-schemas.ts");
 
       const dtsExists = await Bun.file(dtsPath).exists();
       const indexExists = await Bun.file(indexPath).exists();
-      const arkTypeExists = await Bun.file(arkTypePath).exists();
 
       expect(dtsExists).toBe(true);
       expect(indexExists).toBe(true);
-      expect(arkTypeExists).toBe(true);
     });
   });
 
@@ -342,27 +305,6 @@ describe("PluginTypeGenerator", () => {
         expect(result?.schemaName).toBe("ConvertPluginSchema");
         expect(result?.properties.length).toBeGreaterThan(0);
         expect(result?.schemaDefinition).toContain("type({");
-        expect(result?.typeDefinition).toContain("export interface");
-      });
-    });
-
-    describe("convertArkTypeToTypeScript", () => {
-      it("should convert schema to TypeScript", () => {
-        const schema = {
-          schemaName: "TestSchema",
-          schemaDefinition: "",
-          typeDefinition: "",
-          properties: [
-            { name: "id", type: "number", isOptional: false, isArray: false },
-            { name: "name", type: "string", isOptional: true, isArray: false }
-          ]
-        };
-
-        const result = PluginTypeGenerator.convertArkTypeToTypeScript(schema);
-
-        expect(result).toContain("export interface TestSchema {");
-        expect(result).toContain("  id: number;");
-        expect(result).toContain("  name?: string;");
       });
     });
   });

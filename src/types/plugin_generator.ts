@@ -5,7 +5,7 @@ import type { PluginTypeInfo, ArkTypeSchemaInfo, PropertyInfo, GeneratorOptions 
 import { ArkTypeConverter } from "./arktype_converter";
 
 /**
- * Main generator for handling conversion between classes, arktype schemas, and types.
+ * Main generator for handling conversion between classes and arktype schemas.
  */
 export class PluginTypeGenerator {
   private pluginsDir: string;
@@ -54,13 +54,15 @@ export class PluginTypeGenerator {
   async scanPlugins(): Promise<PluginTypeInfo[]> {
     const pluginFiles = await this.scanDirectory(this.pluginsDir);
     const plugins: PluginTypeInfo[] = [];
+    const seenClasses = new Set<string>(); // Track class names to avoid duplicates
     
     for (const filePath of pluginFiles) {
       try {
         const content = await readFile(filePath, "utf-8");
         const pluginInfo = this.parsePlugin(filePath, content);
         
-        if (pluginInfo && pluginInfo.className) {
+        if (pluginInfo && pluginInfo.className && !seenClasses.has(pluginInfo.className)) {
+          seenClasses.add(pluginInfo.className);
           plugins.push(pluginInfo);
         }
       } catch (err) {
@@ -435,12 +437,7 @@ export class PluginTypeGenerator {
             arkTypeSchema = {
               schemaName,
               schemaDefinition: ArkTypeConverter.classToArkType(className, properties),
-              typeDefinition: ArkTypeConverter.arkTypeToTypeScript({
-                schemaName,
-                schemaDefinition: "",
-                typeDefinition: "",
-                properties
-              }),
+              typeDefinition: "",
               properties
             };
           }
@@ -600,7 +597,7 @@ ${pluginList}
 export {};
 `;
   }
-  
+   
   generateModuleExports(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
     const pluginExports = plugins.map(p => {
       const relPath = relative(this.outputDir, p.filePath);
@@ -622,27 +619,7 @@ export interface ${baseApiInterface} {
 ${pluginExports}
 `;
   }
-  
-  /**
-   * Generates arktype schema files for each plugin.
-   */
-  generateArkTypeSchemas(plugins: PluginTypeInfo[]): string {
-    let content = `// Auto-generated ArkType schemas\nimport { type } from "arktype"\n\n`;
-    
-    for (const plugin of plugins) {
-      if (plugin.arkTypeSchema) {
-        content += `// Schema for ${plugin.className}\n`;
-        content += `export const ${plugin.arkTypeSchema.schemaName} = ${plugin.arkTypeSchema.schemaDefinition}\n\n`;
-        content += `// TypeScript type for ${plugin.className}\n`;
-        content += `export ${plugin.arkTypeSchema.typeDefinition}\n\n`;
-        content += `// Type guard for ${plugin.className}\n`;
-        content += `${ArkTypeConverter.generateTypeGuard(plugin.arkTypeSchema)}\n\n`;
-      }
-    }
-    
-    return content;
-  }
-  
+   
   async generate(): Promise<PluginTypeInfo[]> {
     await mkdir(this.outputDir, { recursive: true });
     
@@ -650,28 +627,24 @@ ${pluginExports}
     const baseApiInterface = "BasePluginApi";
     
     const declarations = this.generateDeclarations(plugins, baseApiInterface);
-    const moduleExports = this.generateModuleExports(plugins, baseApiInterface);
-    const arkTypeSchemas = this.generateArkTypeSchemas(plugins);
+    const moduleExports = this.generateModuleExports(plugins);
     
     const dtsPath = join(this.outputDir, "plugin-registry.d.ts");
     const indexPath = join(this.outputDir, "index.d.ts");
-    const arkTypePath = join(this.outputDir, "arktype-schemas.ts");
     
     await writeFile(dtsPath, declarations, "utf-8");
     await writeFile(indexPath, moduleExports, "utf-8");
-    await writeFile(arkTypePath, arkTypeSchemas, "utf-8");
     
     console.log(`Generated ${dtsPath} with ${plugins.length} plugins`);
     console.log(`Generated ${indexPath}`);
-    console.log(`Generated ${arkTypePath}`);
     
     return plugins;
   }
-  
+   
   async getPlugins(): Promise<PluginTypeInfo[]> {
     return this.scanPlugins();
   }
-  
+   
   /**
    * Static method to directly convert a class to arktype schema.
    */
@@ -684,14 +657,14 @@ ${pluginExports}
         ts.ScriptTarget.Latest,
         true
       );
-      
+       
       let className = "";
       let properties: PropertyInfo[] = [];
-      
+       
       const visit = (node: ts.Node) => {
         if (ts.isClassDeclaration(node) && node.name) {
           className = node.name.text;
-          
+           
           const tempGenerator = new PluginTypeGenerator({
             pluginsDir: "",
             outputDir: ""
@@ -700,36 +673,24 @@ ${pluginExports}
         }
         ts.forEachChild(node, visit);
       };
-      
+       
       ts.forEachChild(sourceFile, visit);
-      
+       
       if (!className || properties.length === 0) {
         return null;
       }
-      
+       
       const schemaName = className + "Schema";
       return {
         schemaName,
         schemaDefinition: ArkTypeConverter.classToArkType(className, properties),
-        typeDefinition: ArkTypeConverter.arkTypeToTypeScript({
-          schemaName,
-          schemaDefinition: "",
-          typeDefinition: "",
-          properties
-        }),
+        typeDefinition: "",
         properties
       };
     } catch (error) {
       console.error(`Error converting class to ArkType: ${error}`);
       return null;
     }
-  }
-  
-  /**
-   * Static method to convert an arktype schema to TypeScript type.
-   */
-  static convertArkTypeToTypeScript(schema: ArkTypeSchemaInfo): string {
-    return ArkTypeConverter.arkTypeToTypeScript(schema);
   }
 }
 

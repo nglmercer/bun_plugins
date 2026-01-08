@@ -17,15 +17,3 @@ export { ArkTypeConverter } from "./arktype_converter";
 
 // Re-export PluginTypeGenerator
 export { PluginTypeGenerator, generatePluginTypes } from "./plugin_generator";
-
-/**
- * Example usage:
- * 
- * // Convert class to arktype schema
- * const schema = await PluginTypeGenerator.convertClassToArkType("./plugins/MyPlugin.ts");
- * console.log(schema.schemaDefinition);
- * 
- * // Convert schema to TypeScript
- * const tsType = PluginTypeGenerator.convertArkTypeToTypeScript(schema);
- * console.log(tsType);
- */
