@@ -271,7 +271,27 @@ export class PluginTypeGenerator {
     
     return undefined;
   }
-  
+
+  /**
+   * Generate a type string for public methods of a plugin class.
+   */
+  private generatePublicMethodsType(p: PluginTypeInfo): string {
+    if (p.arkTypeSchema && p.arkTypeSchema.properties.length > 0) {
+      const props = p.arkTypeSchema.properties
+        .filter(prop => !prop.name.startsWith("_") && !prop.name.startsWith("#"))
+        .map(prop => {
+          if (prop.isMethod) {
+            const params = prop.params?.map(param => `${param.name}: ${param.type}`).join(", ") || "";
+            return `    ${prop.name}(${params}): ${prop.type};`;
+          }
+          return `    ${prop.name}${prop.isOptional ? "?" : ""}: ${prop.type};`;
+        })
+        .join("\n");
+      return `{\n${props}\n  }`;
+    }
+    return p.className;
+  }
+
   private findTypeProperties(typeName: string, sourceFile: ts.SourceFile): PropertyInfo[] {
     const properties: PropertyInfo[] = [];
     
@@ -510,15 +530,25 @@ export class PluginTypeGenerator {
   /**
    * Generates dynamic type declarations using a factory pattern.
    * No static KnownPluginNames - types are computed at compile time.
+   * 
+   * The API type includes:
+   * - Base plugin properties (name, version)
+   * - Public methods from the class
+   * - Shared API methods if getSharedApi is defined
    */
   generateDeclarations(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
     // Dynamic plugin factory map - each plugin is indexed by name
     const pluginFactoryEntries = plugins.map(p => {
-      const apiType = p.apiInterface || baseApiInterface;
+      // Generate public methods type from the class
+      const publicMethodsType = this.generatePublicMethodsType(p);
+      
+      // Use the shared API interface if available, otherwise use the public methods
+      const apiType = p.apiInterface ? p.apiInterface : publicMethodsType;
+      
       return `    "${p.name}": {
       name: "${p.name}";
       version: "${p.version}";
-      class: typeof ${p.className};
+      class: ${p.className};
       api: ${apiType};
       dependencies?: ${p.dependencies ? `Record<${JSON.stringify(Object.keys(p.dependencies))}, string>` : "undefined"};
     }`;
@@ -532,7 +562,7 @@ export class PluginTypeGenerator {
 
     // Dynamic class lookups
     const classLookups = plugins.map(p => {
-      return `    T extends "${p.name}" ? typeof ${p.className} :`;
+      return `    T extends "${p.name}" ? ${p.className} :`;
     }).join("\n");
 
     // Plugin names as tuple for autocomplete
@@ -540,82 +570,89 @@ export class PluginTypeGenerator {
 
     return `import type { IPlugin } from "${this.packageName}/types";
 
-declare global {
-  namespace ${this.packageName.replace(/-/g, '_')} {
-    interface ${baseApiInterface} {
-      name: string;
-      version: string;
-      actions?: string[];
-      type?: string;
-      loaded?: string;
-    }
-
-    /**
-     * Dynamic plugin factory map - all plugins are indexed here.
-     * This replaces the static KnownPluginNames type.
-     */
-    interface PluginFactory {
-${pluginFactoryEntries}
-    }
-
-    /**
-     * Registry that aggregates all plugin types for global availability.
-     * This enables autocomplete without explicit imports.
-     */
-    interface PluginTypeRegistry {
-      /** All discovered plugin names */
-      PluginNames: PluginNames;
-      /** Get API type for a plugin */
-      GetPluginApi: GetPluginApi;
-      /** Get class type for a plugin */
-      GetPluginClass: GetPluginClass;
-      /** Type-safe plugin factory */
-      PluginFactory: PluginFactory;
-      /** Check if a plugin name is valid */
-      IsValidPlugin: IsValidPlugin;
-    }
-
-    /**
-     * Union type of all plugin names for autocomplete.
-     * Generated dynamically from discovered plugins.
-     */
-    type PluginNames = ${pluginNamesTuple};
-
-    /**
-     * Type lookup using the factory map for autocomplete.
-     */
-    type PluginApiType<T extends PluginNames> = 
-      T extends keyof PluginFactory ? PluginFactory[T]["api"] : ${baseApiInterface};
-
-    /**
-     * Class type lookup using the factory map.
-     */
-    type PluginClassType<T extends PluginNames> = 
-      T extends keyof PluginFactory ? PluginFactory[T]["class"] : IPlugin;
-
-    /**
-     * Get the API type for a specific plugin.
-     */
-    type GetPluginApi<T extends PluginNames> = PluginApiType<T>;
-
-    /**
-     * Get the class type for a specific plugin.
-     */
-    type GetPluginClass<T extends PluginNames> = PluginClassType<T>;
-
-    /**
-     * Helper to check if a plugin name is valid.
-     */
-    type IsValidPlugin<T extends string> = T extends PluginNames ? true : false;
-
-    /**
-     * Type-safe plugin retrieval from the factory.
-     */
-    type PluginFromFactory<T extends PluginNames> = PluginFactory[T];
+// Plugin namespace for type-safe plugin access
+export namespace bun_plugins {
+  export interface ${baseApiInterface} {
+    name: string;
+    version: string;
+    actions?: string[];
+    type?: string;
+    loaded?: string;
   }
+
+  /**
+   * Dynamic plugin factory map - all plugins are indexed here.
+   * This replaces the static KnownPluginNames type.
+   */
+  export interface PluginFactory {
+${pluginFactoryEntries}
+  }
+
+  /**
+   * Registry that aggregates all plugin types for global availability.
+   * This enables autocomplete without explicit imports.
+   */
+  export interface PluginTypeRegistry {
+    /** All discovered plugin names */
+    PluginNames: PluginNames;
+    /** Get API type for a plugin */
+    GetPluginApi: GetPluginApi;
+    /** Get class type for a plugin */
+    GetPluginClass: GetPluginClass;
+    /** Type-safe plugin factory */
+    PluginFactory: PluginFactory;
+    /** Check if a plugin name is valid */
+    IsValidPlugin: IsValidPlugin;
+  }
+
+  /**
+   * Union type of all plugin names for autocomplete.
+   * Generated dynamically from discovered plugins.
+   */
+  export type PluginNames = ${pluginNamesTuple};
+
+  /**
+   * Type lookup using the factory map for autocomplete.
+   */
+  export type PluginApiType<T extends PluginNames> = 
+    T extends keyof PluginFactory ? PluginFactory[T]["api"] : ${baseApiInterface};
+
+  /**
+   * Class type lookup using the factory map.
+   */
+  export type PluginClassType<T extends PluginNames> = 
+    T extends keyof PluginFactory ? PluginFactory[T]["class"] : IPlugin;
+
+  /**
+   * Get the API type for a specific plugin.
+   */
+  export type GetPluginApi<T extends PluginNames> = PluginApiType<T>;
+
+  /**
+   * Get the class type for a specific plugin.
+   */
+  export type GetPluginClass<T extends PluginNames> = PluginClassType<T>;
+
+  /**
+   * Helper to check if a plugin name is valid.
+   */
+  export type IsValidPlugin<T extends string> = T extends PluginNames ? true : false;
+
+  /**
+   * Type-safe plugin retrieval from the factory.
+   */
+  export type PluginFromFactory<T extends PluginNames> = PluginFactory[T];
 }
 
-export {};
+// Export types outside namespace for easier import
+export type PluginNames = bun_plugins.PluginNames;
+export type PluginApiType<T extends bun_plugins.PluginNames> = bun_plugins.PluginApiType<T>;
+export type PluginClassType<T extends bun_plugins.PluginNames> = bun_plugins.PluginClassType<T>;
+export type GetPluginApi<T extends bun_plugins.PluginNames> = bun_plugins.GetPluginApi<T>;
+export type GetPluginClass<T extends bun_plugins.PluginNames> = bun_plugins.GetPluginClass<T>;
+export type IsValidPlugin<T extends string> = bun_plugins.IsValidPlugin<T>;
+export type PluginFromFactory<T extends bun_plugins.PluginNames> = bun_plugins.PluginFromFactory<T>;
+export type PluginFactory = bun_plugins.PluginFactory;
 `;
   }
     

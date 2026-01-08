@@ -1,7 +1,7 @@
 import { definePlugin } from "../src";
-import type { MathPlugin } from "./MathPlugin";
 
 // Los tipos están disponibles globalmente gracias a src/global.d.ts
+// No necesitas importar MathPlugin - el tipado es automático
 
 export default definePlugin({
     name: "edge",
@@ -15,8 +15,12 @@ export default definePlugin({
             context.log.error("Math plugin not found");
             return;
         }
-
-        // Usar getSharedApi() - más seguro y encapsulado
+        // Experimental automatic types
+        const result = mathPlugin.add(1, 2);
+        context.log.info(`Math result via API: ${result}`);
+        
+        // recomendado
+/*         // Usar getSharedApi() - más seguro y encapsulado
         const mathApi = mathPlugin.getSharedApi?.() as {
             add(a: number, b: number): number;
             multiply(a: number, b: number): number;
@@ -35,7 +39,7 @@ export default definePlugin({
         if (mathPluginDirect) {
             const addResult = mathPluginDirect.add(5, 6);
             context.log.info(`Addition result direct: ${addResult}`);
-        }
+        } */
     },
     
     onUnload() {}

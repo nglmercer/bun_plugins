@@ -1,68 +1,74 @@
 import { z } from "zod";
 export { z };
 
+// Import generated plugin types for autocomplete
+import type {
+  PluginNames,
+  PluginApiType,
+} from "../plugin-types/plugin-registry";
+
 export enum WorkerMessageType {
-    RPC_CALL = 'RPC_CALL',
-    HOOK_CALL = 'HOOK_CALL',
-    HOOK_RESULT = 'HOOK_RESULT',
-    HOOK_ERROR = 'HOOK_ERROR',
-    EVENT_EMIT = 'EVENT_EMIT',
-    MANIFEST = 'MANIFEST',
-    LOAD_SUCCESS = 'LOAD_SUCCESS',
-    LOAD_ERROR = 'LOAD_ERROR',
-    START_UP = 'START_UP',
-    UNLOAD = 'UNLOAD'
+  RPC_CALL = "RPC_CALL",
+  HOOK_CALL = "HOOK_CALL",
+  HOOK_RESULT = "HOOK_RESULT",
+  HOOK_ERROR = "HOOK_ERROR",
+  EVENT_EMIT = "EVENT_EMIT",
+  MANIFEST = "MANIFEST",
+  LOAD_SUCCESS = "LOAD_SUCCESS",
+  LOAD_ERROR = "LOAD_ERROR",
+  START_UP = "START_UP",
+  UNLOAD = "UNLOAD",
 }
 
 export enum PluginPermission {
-    Network = 'network',
-    Filesystem = 'filesystem',
-    Env = 'env'
+  Network = "network",
+  Filesystem = "filesystem",
+  Env = "env",
 }
 
 export enum RPCMethod {
-    StorageGet = 'storage:get',
-    StorageSet = 'storage:set',
-    StorageDelete = 'storage:delete',
-    StorageClear = 'storage:clear',
-    EventsEmit = 'events:emit',
-    EventsOn = 'events:on',
-    HooksRegister = 'hooks:register',
-    ManagerGetPlugin = 'manager:getPlugin',
-    Log = 'log',
-    NetworkFetch = 'network:fetch',
-    PermissionCheck = 'perm:check',
-    ConfigGet = 'config:get',
-    StorageReload = 'storage:reload'
+  StorageGet = "storage:get",
+  StorageSet = "storage:set",
+  StorageDelete = "storage:delete",
+  StorageClear = "storage:clear",
+  EventsEmit = "events:emit",
+  EventsOn = "events:on",
+  HooksRegister = "hooks:register",
+  ManagerGetPlugin = "manager:getPlugin",
+  Log = "log",
+  NetworkFetch = "network:fetch",
+  PermissionCheck = "perm:check",
+  ConfigGet = "config:get",
+  StorageReload = "storage:reload",
 }
 
 export enum HookType {
-    ON_RESOLVE = 'onResolve',
-    ON_LOAD = 'onLoad',
-    ON_START = 'onStart'
+  ON_RESOLVE = "onResolve",
+  ON_LOAD = "onLoad",
+  ON_START = "onStart",
 }
 
 export enum HookOrder {
-    PRE = 'pre',
-    POST = 'post'
+  PRE = "pre",
+  POST = "post",
 }
 
 export interface PluginResource {
-    workers: Worker[];
-    timers: { id: number | Timer; type: 'timeout' | 'interval' }[];
-    eventListeners: { event: string; listener: Function }[];
+  workers: Worker[];
+  timers: { id: number | Timer; type: "timeout" | "interval" }[];
+  eventListeners: { event: string; listener: Function }[];
 }
 
 export interface HookRegistry<T> {
-    filter: RegExp;
-    callback: T;
-    pluginName: string;
-    order?: HookOrder;
+  filter: RegExp;
+  callback: T;
+  pluginName: string;
+  order?: HookOrder;
 }
 // Define a global map of events for type safety
 // Users can use declaration merging to extend this interface
 export interface AppEvents {
-  "log": { level: "info" | "error" | "warn"; message: string };
+  log: { level: "info" | "error" | "warn"; message: string };
   "plugin:updated": { name: string; version: string };
   [key: string]: any; // Allow loose typing for flexibility if needed, or remove for strictness
 }
@@ -78,11 +84,11 @@ export interface IPluginStorage {
 }
 
 export interface Logger {
-    info(msg: string, ...args: any[]): void;
-    warn(msg: string, ...args: any[]): void;
-    error(msg: string, ...args: any[]): void;
-    debug?(msg: string, ...args: any[]): void;
-    child?(context: string): Logger;
+  info(msg: string, ...args: any[]): void;
+  warn(msg: string, ...args: any[]): void;
+  error(msg: string, ...args: any[]): void;
+  debug?(msg: string, ...args: any[]): void;
+  child?(context: string): Logger;
 }
 
 export interface IPluginManager {
@@ -102,7 +108,7 @@ export interface IPluginManager {
   getWorkerFactory(): (url: string | URL, options?: BunWorkerOptions) => Worker;
   getMetrics(): any;
   getPluginStatus(): Record<string, any>;
-  
+
   // Bun-like Aliases
   use(plugin: IPlugin): Promise<void>;
   plugin(plugin: IPlugin): Promise<void>;
@@ -110,42 +116,61 @@ export interface IPluginManager {
 
   // EventEmitter methods
   emit<K extends keyof AppEvents>(eventName: K, payload: AppEvents[K]): boolean;
-  on<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
-  once<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
-  off<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
+  on<K extends keyof AppEvents>(
+    eventName: K & string,
+    listener: (payload: AppEvents[K]) => void,
+  ): this;
+  once<K extends keyof AppEvents>(
+    eventName: K & string,
+    listener: (payload: AppEvents[K]) => void,
+  ): this;
+  off<K extends keyof AppEvents>(
+    eventName: K & string,
+    listener: (payload: AppEvents[K]) => void,
+  ): this;
 }
-
-// Plugin name type for autocomplete
-export type PluginNames = string;
 
 export interface PluginContext {
   // Legacy/Direct event methods
   emit<K extends keyof AppEvents>(event: K, payload: AppEvents[K]): void;
-  on<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void;
-  
+  on<K extends keyof AppEvents>(
+    event: K,
+    callback: EventCallback<AppEvents[K]>,
+  ): void;
+
   // Namespaced Event Bus
   events: {
     emit<K extends keyof AppEvents>(event: K, payload: AppEvents[K]): void;
-    on<K extends keyof AppEvents>(event: K, callback: EventCallback<AppEvents[K]>): void;
+    on<K extends keyof AppEvents>(
+      event: K,
+      callback: EventCallback<AppEvents[K]>,
+    ): void;
   };
 
   storage: IPluginStorage;
   config: Record<string, any>;
   manager: IPluginManager;
-  
+
   // Access to other plugins' shared APIs
-  // Returns the plugin instance asynchronously (required for worker contexts)
-  getPlugin<TName extends PluginNames>(name: TName): Promise<IPlugin | undefined>;
+  // Returns the plugin instance synchronously (for main process contexts)
+  // Uses dynamically generated types for full autocomplete
+  // Returns the API type which includes all public methods of the plugin
+  getPlugin<TName extends PluginNames>(
+    name: TName,
+  ): PluginApiType<TName> | undefined;
 
   // Scoped Logger
   log: Logger;
 
   // Worker Management
   createWorker(url: string | URL, options?: BunWorkerOptions): BunWorker;
-  
+
   // Security / Capabilities
   network: {
-      fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+    fetch: (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => Promise<Response>;
   };
   // Filesystem Proxy
   file: (path: string) => any; // Returns BunFile-like object
@@ -153,30 +178,39 @@ export interface PluginContext {
   env: Record<string, string | undefined>;
 
   // Timers
-  setTimeout: (callback: (...args: any[]) => void, delay?: number, ...args: any[]) => number | Timer;
-  setInterval: (callback: (...args: any[]) => void, delay?: number, ...args: any[]) => number | Timer;
+  setTimeout: (
+    callback: (...args: any[]) => void,
+    delay?: number,
+    ...args: any[]
+  ) => number | Timer;
+  setInterval: (
+    callback: (...args: any[]) => void,
+    delay?: number,
+    ...args: any[]
+  ) => number | Timer;
   clearTimeout: (id: number | Timer) => void;
   clearInterval: (id: number | Timer) => void;
 }
 
 export interface BunWorkerOptions extends WorkerOptions {
-    smol?: boolean;
-    preload?: string[] | string;
-    ref?: boolean;
-    env?: Record<string, string>; // Support environment data
+  smol?: boolean;
+  preload?: string[] | string;
+  ref?: boolean;
+  env?: Record<string, string>; // Support environment data
 }
 
 export interface BunWorker extends Worker {
-    ref(): void;
-    unref(): void;
+  ref(): void;
+  unref(): void;
 }
 
-
 export class AccessDeniedError extends Error {
-    constructor(permission: string, pluginName: string) {
-        super(`Plugin '${pluginName}' tried to access '${permission}' but does not have permission.`);
-        this.name = "AccessDeniedError";
-    }
+  constructor(permission: string, pluginName: string) {
+    super(
+      `Plugin '${pluginName}' tried to access '${permission}' but does not have permission.`,
+    );
+    this.name = "AccessDeniedError";
+  }
 }
 
 // Validation schema for a basic plugin structure if needed
@@ -190,9 +224,9 @@ export interface IPlugin {
   version: string;
   description?: string;
   author?: string;
-  
+
   engines?: {
-      host?: string; // Host application version
+    host?: string; // Host application version
   };
 
   configSchema?: z.ZodSchema;
@@ -209,7 +243,7 @@ export interface IPlugin {
   onStarted?: () => Promise<void> | void; // New Lifecycle Hook
   onUnload(): Promise<void> | void;
   onReload?: (context: PluginContext) => Promise<void> | void;
-  
+
   // Method to expose a shared API to other plugins
   getSharedApi?: () => unknown;
 
@@ -217,17 +251,43 @@ export interface IPlugin {
   setup?: (build: PluginBuilder) => void | Promise<void>;
 }
 
-export type OnResolveArgs = { path: string; importer?: string; namespace?: string };
-export type OnResolveResult = { path: string; namespace?: string } | undefined | null;
-export type OnResolveCallback = (args: OnResolveArgs) => OnResolveResult | Promise<OnResolveResult>;
+export type OnResolveArgs = {
+  path: string;
+  importer?: string;
+  namespace?: string;
+};
+export type OnResolveResult =
+  | { path: string; namespace?: string }
+  | undefined
+  | null;
+export type OnResolveCallback = (
+  args: OnResolveArgs,
+) => OnResolveResult | Promise<OnResolveResult>;
 
-export type OnLoadArgs = { path: string; namespace?: string; previousContents?: string };
-export type OnLoadResult = { contents: string; loader?: string } | undefined | null;
-export type OnLoadCallback = (args: OnLoadArgs) => OnLoadResult | Promise<OnLoadResult>;
+export type OnLoadArgs = {
+  path: string;
+  namespace?: string;
+  previousContents?: string;
+};
+export type OnLoadResult =
+  | { contents: string; loader?: string }
+  | undefined
+  | null;
+export type OnLoadCallback = (
+  args: OnLoadArgs,
+) => OnLoadResult | Promise<OnLoadResult>;
 
 export interface PluginBuilder {
   onStart(callback: () => void | Promise<void>): void;
-  onResolve(filter: RegExp | { filter: RegExp; namespace?: string }, callback: OnResolveCallback, options?: { order?: HookOrder }): void;
-  onLoad(filter: RegExp | { filter: RegExp; namespace?: string }, callback: OnLoadCallback, options?: { order?: HookOrder }): void;
+  onResolve(
+    filter: RegExp | { filter: RegExp; namespace?: string },
+    callback: OnResolveCallback,
+    options?: { order?: HookOrder },
+  ): void;
+  onLoad(
+    filter: RegExp | { filter: RegExp; namespace?: string },
+    callback: OnLoadCallback,
+    options?: { order?: HookOrder },
+  ): void;
   config: Record<string, any>;
 }

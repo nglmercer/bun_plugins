@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { PluginTypeGenerator } from "../../src/types/plugin_generator";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +18,7 @@ describe("PluginTypeGenerator", () => {
   beforeAll(async () => {
     tempDir = join(tmpdir(), "bun-plugins-gen-test-" + Date.now());
     await mkdir(tempDir, { recursive: true });
-    
+
     cleanup = async () => {
       try {
         await rm(tempDir, { recursive: true, force: true });
@@ -39,7 +46,7 @@ describe("PluginTypeGenerator", () => {
     it("should create generator with required options", () => {
       const generator = new PluginTypeGenerator({
         pluginsDir: "/plugins",
-        outputDir: "/output"
+        outputDir: "/output",
       });
 
       expect(generator).toBeDefined();
@@ -49,7 +56,7 @@ describe("PluginTypeGenerator", () => {
       const generator = new PluginTypeGenerator({
         pluginsDir: "/plugins",
         outputDir: "/output",
-        packageName: "custom_plugins"
+        packageName: "custom_plugins",
       });
 
       expect(generator).toBeDefined();
@@ -60,7 +67,7 @@ describe("PluginTypeGenerator", () => {
     it("should return empty array for non-existent directory", async () => {
       const generator = new PluginTypeGenerator({
         pluginsDir: join(tempDir, "non-existent"),
-        outputDir: join(tempDir, "output")
+        outputDir: join(tempDir, "output"),
       });
 
       const plugins = await generator.scanPlugins();
@@ -80,7 +87,7 @@ describe("PluginTypeGenerator", () => {
 
       const generator = new PluginTypeGenerator({
         pluginsDir: tempDir,
-        outputDir: join(tempDir, "output")
+        outputDir: join(tempDir, "output"),
       });
 
       const plugins = await generator.scanPlugins();
@@ -100,7 +107,7 @@ describe("PluginTypeGenerator", () => {
 
       const generator = new PluginTypeGenerator({
         pluginsDir: tempDir,
-        outputDir: join(tempDir, "output")
+        outputDir: join(tempDir, "output"),
       });
 
       const plugins = await generator.scanPlugins();
@@ -116,13 +123,13 @@ describe("PluginTypeGenerator", () => {
 
       const generator = new PluginTypeGenerator({
         pluginsDir: tempDir,
-        outputDir: join(tempDir, "output")
+        outputDir: join(tempDir, "output"),
       });
 
       const plugins = await generator.scanPlugins();
 
       // Should not include files without class declarations
-      expect(plugins.every(p => p.name !== "utils")).toBe(true);
+      expect(plugins.every((p) => p.name !== "utils")).toBe(true);
     });
   });
 
@@ -142,7 +149,7 @@ describe("PluginTypeGenerator", () => {
       const generator = new PluginTypeGenerator({
         pluginsDir: isolatedTempDir,
         outputDir: join(isolatedTempDir, "output"),
-        packageName: "test_plugins"
+        packageName: "test_plugins",
       });
 
       const plugins = await generator.scanPlugins();
@@ -170,7 +177,7 @@ describe("PluginTypeGenerator", () => {
 
       const generator = new PluginTypeGenerator({
         pluginsDir: isolatedTempDir,
-        outputDir: join(isolatedTempDir, "output")
+        outputDir: join(isolatedTempDir, "output"),
       });
 
       const plugins = await generator.scanPlugins();
@@ -186,7 +193,10 @@ describe("PluginTypeGenerator", () => {
   describe("generateModuleExports", () => {
     it("should generate module exports", async () => {
       // Create isolated directory for this test to avoid fs-plugin timeout
-      const isolatedTempDir = join(tmpdir(), "bun-plugins-export-" + Date.now());
+      const isolatedTempDir = join(
+        tmpdir(),
+        "bun-plugins-export-" + Date.now(),
+      );
       await mkdir(isolatedTempDir, { recursive: true });
 
       const testPlugin = `export class ExportPlugin {
@@ -198,7 +208,7 @@ describe("PluginTypeGenerator", () => {
 
       const generator = new PluginTypeGenerator({
         pluginsDir: isolatedTempDir,
-        outputDir: join(isolatedTempDir, "output")
+        outputDir: join(isolatedTempDir, "output"),
       });
 
       const plugins = await generator.scanPlugins();
@@ -208,7 +218,8 @@ describe("PluginTypeGenerator", () => {
       await rm(isolatedTempDir, { recursive: true, force: true });
 
       expect(result).toContain("ExportPlugin");
-      expect(result).toContain("KnownPluginNames");
+      expect(result).toContain("PluginNames");
+      expect(result).toContain("PluginApiType");
     });
   });
 
@@ -226,7 +237,7 @@ describe("PluginTypeGenerator", () => {
       const generator = new PluginTypeGenerator({
         pluginsDir: tempDir,
         outputDir: outputDir,
-        packageName: "test_bun_plugins"
+        packageName: "test_bun_plugins",
       });
 
       const plugins = await generator.generate();
@@ -248,9 +259,12 @@ describe("PluginTypeGenerator", () => {
   describe("getPlugins", () => {
     it("should return scanned plugins from isolated directory", async () => {
       // Create a unique plugin for this test in an isolated temp directory
-      const isolatedTempDir = join(tmpdir(), "bun-plugins-isolated-" + Date.now());
+      const isolatedTempDir = join(
+        tmpdir(),
+        "bun-plugins-isolated-" + Date.now(),
+      );
       await mkdir(isolatedTempDir, { recursive: true });
-      
+
       const uniqueName = "unique-get-plugin-isolated";
       const testPlugin = `export class UniquePlugin {
         name = "${uniqueName}";
@@ -261,7 +275,7 @@ describe("PluginTypeGenerator", () => {
 
       const generator = new PluginTypeGenerator({
         pluginsDir: isolatedTempDir,
-        outputDir: join(isolatedTempDir, "output")
+        outputDir: join(isolatedTempDir, "output"),
       });
 
       const plugins = await generator.getPlugins();
@@ -271,7 +285,7 @@ describe("PluginTypeGenerator", () => {
 
       expect(plugins.length).toBeGreaterThan(0);
       // Find the plugin with our unique name
-      const uniquePlugin = plugins.find(p => p.name === uniqueName);
+      const uniquePlugin = plugins.find((p) => p.name === uniqueName);
       expect(uniquePlugin).toBeDefined();
       expect(uniquePlugin?.name).toBe(uniqueName);
     });
@@ -281,7 +295,7 @@ describe("PluginTypeGenerator", () => {
     describe("convertClassToArkType", () => {
       it("should return null for non-existent file", async () => {
         const result = await PluginTypeGenerator.convertClassToArkType(
-          join(tempDir, "non-existent.ts")
+          join(tempDir, "non-existent.ts"),
         );
 
         expect(result).toBeNull();
@@ -299,7 +313,8 @@ describe("PluginTypeGenerator", () => {
         const pluginPath = join(tempDir, "ConvertPlugin.ts");
         await writeFile(pluginPath, testClass);
 
-        const result = await PluginTypeGenerator.convertClassToArkType(pluginPath);
+        const result =
+          await PluginTypeGenerator.convertClassToArkType(pluginPath);
 
         expect(result).not.toBeNull();
         expect(result?.schemaName).toBe("ConvertPluginSchema");
@@ -320,12 +335,17 @@ describe("PluginTypeGenerator", () => {
       const pluginPath = join(tempDir, "PropsPlugin.ts");
       await writeFile(pluginPath, testClass);
 
-      const result = await PluginTypeGenerator.convertClassToArkType(pluginPath);
+      const result =
+        await PluginTypeGenerator.convertClassToArkType(pluginPath);
 
       expect(result?.properties.length).toBe(3);
-      expect(result?.properties.some(p => p.name === "publicId")).toBe(true);
-      expect(result?.properties.some(p => p.name === "publicName")).toBe(true);
-      expect(result?.properties.some(p => p.name === "publicActive")).toBe(true);
+      expect(result?.properties.some((p) => p.name === "publicId")).toBe(true);
+      expect(result?.properties.some((p) => p.name === "publicName")).toBe(
+        true,
+      );
+      expect(result?.properties.some((p) => p.name === "publicActive")).toBe(
+        true,
+      );
     });
 
     it("should exclude private properties", async () => {
@@ -338,7 +358,8 @@ describe("PluginTypeGenerator", () => {
       const pluginPath = join(tempDir, "PrivatePlugin.ts");
       await writeFile(pluginPath, testClass);
 
-      const result = await PluginTypeGenerator.convertClassToArkType(pluginPath);
+      const result =
+        await PluginTypeGenerator.convertClassToArkType(pluginPath);
 
       expect(result?.properties.length).toBe(1);
       expect(result?.properties[0].name).toBe("publicId");
@@ -354,7 +375,8 @@ describe("PluginTypeGenerator", () => {
       const pluginPath = join(tempDir, "OptionalPlugin.ts");
       await writeFile(pluginPath, testClass);
 
-      const result = await PluginTypeGenerator.convertClassToArkType(pluginPath);
+      const result =
+        await PluginTypeGenerator.convertClassToArkType(pluginPath);
 
       expect(result?.properties.length).toBeGreaterThan(0);
     });
@@ -369,7 +391,8 @@ describe("PluginTypeGenerator", () => {
       const pluginPath = join(tempDir, "ArrayPlugin.ts");
       await writeFile(pluginPath, testClass);
 
-      const result = await PluginTypeGenerator.convertClassToArkType(pluginPath);
+      const result =
+        await PluginTypeGenerator.convertClassToArkType(pluginPath);
 
       expect(result?.properties.length).toBe(3);
     });
@@ -379,7 +402,7 @@ describe("PluginTypeGenerator", () => {
 describe("generatePluginTypes function", () => {
   it("should be exported correctly", async () => {
     const { generatePluginTypes } = await import("../../src/types/generator");
-    
+
     expect(typeof generatePluginTypes).toBe("function");
   });
 });
