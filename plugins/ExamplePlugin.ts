@@ -22,12 +22,8 @@ export default definePlugin({
         const multiplyResult = mathPlugin.multiply(3, 4);
         context.log.info(`Multiplication result: ${multiplyResult}`);
         
-        // También puedes usar getApi() para una API más encapsulada
-        const mathApi = mathPlugin.getApi?.();
-        if (mathApi) {
-            // mathApi tiene el tipo MathPluginApi
-            context.log.info(`Math API version: ${mathApi.version}`);
-        }
+        // mathPlugin ya es la API del plugin, no es necesario llamar a getApi()
+        context.log.info(`Math API version: ${mathPlugin.version}`);
     },
     
     onUnload() {}

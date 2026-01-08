@@ -2,7 +2,6 @@
 // This file bridges the generated types with the plugin system
 
 export type {
-  BasePluginApi,
   PluginNames,
   PluginApiType,
   PluginClassType,

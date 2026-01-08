@@ -46,8 +46,9 @@ export interface PluginFactory {
 /**
  * Union type of all plugin names.
  * This is dynamically computed from PluginFactory keys.
+ * For development, we allow any string to be used as plugin name.
  */
-export type PluginNames = keyof PluginFactory;
+export type PluginNames = keyof PluginFactory | string;
 
 /**
  * Get the API type for a specific plugin.
@@ -85,8 +86,12 @@ export type IsValidPlugin<T extends string> = T extends PluginNames ? true : fal
 
 /**
  * Type-safe plugin retrieval from the factory.
+ * Returns the plugin info if found, undefined otherwise.
  */
-export type PluginFromFactory<T extends PluginNames> = PluginFactory[T];
+export type PluginFromFactory<T extends PluginNames> =
+  T extends keyof PluginFactory
+    ? PluginFactory[T]
+    : undefined;
 
 /**
  * Plugin instance type - combines class and API types.

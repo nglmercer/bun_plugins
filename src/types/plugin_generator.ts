@@ -160,7 +160,8 @@ export class PluginTypeGenerator {
       return null;
     }
     
-    const lifecycleMethods = ["onLoad", "onUnload", "onEnable", "onDisable", "onReload"];
+    // Filter out lifecycle methods and getApi (internal plugin methods)
+    const lifecycleMethods = ["onLoad", "onUnload", "onEnable", "onDisable", "onReload", "getApi"];
     if (lifecycleMethods.includes(name)) {
       return null;
     }
@@ -292,6 +293,34 @@ export class PluginTypeGenerator {
     return p.className;
   }
 
+  /**
+   * Generate an inline type definition for a plugin's API.
+   * If the plugin has an API interface defined, it extracts the interface definition.
+   * Otherwise, it generates the type from public methods.
+   */
+  private generateInlineApiType(p: PluginTypeInfo, fallbackType: string): string {
+    // If the plugin has an API interface, try to extract its definition
+    if (p.apiInterface && p.arkTypeSchema) {
+      const props = p.arkTypeSchema.properties
+        .filter(prop => !prop.name.startsWith("_") && !prop.name.startsWith("#"))
+        .map(prop => {
+          if (prop.isMethod) {
+            const params = prop.params?.map(param => `${param.name}: ${param.type}`).join(", ") || "";
+            return `    ${prop.name}(${params}): ${prop.type};`;
+          }
+          return `    ${prop.name}${prop.isOptional ? "?" : ""}: ${prop.type};`;
+        })
+        .join("\n");
+      
+      if (props) {
+        return `{\n${props}\n  }`;
+      }
+    }
+    
+    // Fallback: use the provided type (either interface name or public methods)
+    return fallbackType;
+  }
+
   private findTypeProperties(typeName: string, sourceFile: ts.SourceFile): PropertyInfo[] {
     const properties: PropertyInfo[] = [];
     
@@ -405,7 +434,60 @@ export class PluginTypeGenerator {
     let dependencies: Record<string, string> | undefined;
     let arkTypeSchema: ArkTypeSchemaInfo | undefined;
 
+    // Store interface definitions for later lookup
+    const interfaceDefinitions = new Map<string, PropertyInfo[]>();
+    const self = this;
+
     function visit(node: ts.Node) {
+      // Extract interface definitions
+      if (ts.isInterfaceDeclaration(node)) {
+        const interfaceName = node.name.text;
+        const properties: PropertyInfo[] = [];
+        
+        node.members.forEach(member => {
+          if (ts.isPropertySignature(member) && member.name && ts.isIdentifier(member.name)) {
+            const propName = member.name.text;
+            if (!propName.startsWith("_") && !propName.startsWith("#")) {
+              const propInfo: PropertyInfo = {
+                  name: propName,
+                  type: member.type ? member.type.getText(sourceFile) : "any",
+                  isOptional: member.questionToken !== undefined,
+                  isArray: member.type ? self.isArrayType(member.type, sourceFile) : false
+                };
+              properties.push(propInfo);
+            }
+          } else if (ts.isMethodSignature(member) && member.name && ts.isIdentifier(member.name)) {
+            const methodName = member.name.getText(sourceFile);
+            if (!methodName.startsWith("_") && !methodName.startsWith("#")) {
+              const params: { name: string; type: string; isOptional: boolean }[] = [];
+              member.parameters.forEach(param => {
+                if (ts.isIdentifier(param.name)) {
+                  params.push({
+                    name: param.name.text,
+                    type: param.type ? param.type.getText(sourceFile) : "any",
+                    isOptional: param.questionToken !== undefined
+                  });
+                }
+              });
+              
+              const returnType = member.type ? member.type.getText(sourceFile) : "void";
+              properties.push({
+                name: methodName,
+                type: returnType,
+                isOptional: false,
+                isArray: false,
+                isMethod: true,
+                params
+              });
+            }
+          }
+        });
+        
+        if (properties.length > 0) {
+          interfaceDefinitions.set(interfaceName, properties);
+        }
+      }
+
       if (ts.isClassDeclaration(node)) {
         if (node.name) {
           className = node.name.text;
@@ -455,6 +537,18 @@ export class PluginTypeGenerator {
           const match = returnType.match(/:\s*(\w+Api)/);
           if (match) {
             apiInterface = match[1];
+            // If we found an API interface, use its properties for the schema
+            if (apiInterface) {
+              const apiProperties = interfaceDefinitions.get(apiInterface);
+              if (apiProperties) {
+                arkTypeSchema = {
+                  schemaName: apiInterface + "Schema",
+                  schemaDefinition: ArkTypeConverter.classToArkType(apiInterface, apiProperties),
+                  typeDefinition: "",
+                  properties: apiProperties
+                };
+              }
+            }
           }
         }
       }
@@ -530,11 +624,8 @@ export class PluginTypeGenerator {
    * - Shared API methods if getApi is defined
    */
   generateDeclarations(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
-    // Generate imports for all plugin classes
-    const pluginImports = plugins.map(p => {
-      const relPath = relative(this.outputDir, p.filePath);
-      return `import { ${p.className} } from "./${relPath.replace(/\\/g, '/').replace(/\.(ts|js)$/, "")}";`;
-    }).join("\n");
+    // Note: We don't import plugin classes here because they are not distributed with the package
+    // The class names are used only for type information
 
     // Dynamic plugin factory map - each plugin is indexed by name
     const pluginFactoryEntries = plugins.map(p => {
@@ -544,14 +635,17 @@ export class PluginTypeGenerator {
       // Use the shared API interface if available, otherwise use the public methods
       const apiType = p.apiInterface ? p.apiInterface : publicMethodsType;
       
-      // Replace unavailable types with 'any'
-      const sanitizedApiType = apiType
+      // Generate inline type definition for the API
+      // This ensures that the API type is fully defined without external dependencies
+      const inlineApiType = this.generateInlineApiType(p, apiType);
+      
+      // Fix relative imports for distributed types
+      const sanitizedApiType = inlineApiType
         .replace(/PluginContext/g, 'any')
         .replace(/EngineActionHandler/g, 'any')
         .replace(/ActionRegistry/g, 'any')
-        .replace(/DynamicJSActionsPluginApi/g, 'any')
-        .replace(/MathPluginApi/g, 'any')
-        .replace(/MyJSPlugin/g, 'any');
+        .replace(/import\("\.\.\/\.\.\/src"\)\./g, 'import("bun_plugins/src").')
+        .replace(/import\("\.\.\/src"\)\./g, 'import("bun_plugins/src").');
       
       return `    "${p.name}": {
       name: "${p.name}";
@@ -562,9 +656,7 @@ export class PluginTypeGenerator {
     }`;
     }).join(",\n");
 
-    return `${pluginImports}
-
-import type { PluginFactory as BasePluginFactory } from "${this.packageName}/src/types/plugin-registry-base";
+    return `import type { PluginFactory as BasePluginFactory, BasePluginApi } from "${this.packageName}/src/types/plugin-registry-base";
 
 /**
  * Extend the PluginFactory interface with discovered plugins.
@@ -593,18 +685,20 @@ ${pluginFactoryEntries}
  * These types support dynamic plugin discovery and user extension.
  */
 export type {
-  BasePluginApi,
-  PluginApiType,
   PluginClassType,
   GetPluginApi,
   GetPluginClass,
   IsValidPlugin,
   PluginFromFactory,
   PluginInstanceType
-} from "../src/types/plugin-registry-base";
+} from "${this.packageName}/src/types/plugin-registry-base";
+
+// Re-export BasePluginApi (already imported at the top)
+export type { BasePluginApi };
 
 // Define PluginNames directly from the extended PluginFactory
-export type PluginNames = keyof PluginFactory;
+// For development, we allow any string to be used as plugin name
+export type PluginNames = keyof PluginFactory | string;
 
 // Define PluginApiType directly from the extended PluginFactory
 export type PluginApiType<T extends string> =
@@ -615,10 +709,7 @@ export type PluginApiType<T extends string> =
   }
     
   generateModuleExports(plugins: PluginTypeInfo[], baseApiInterface: string = "BasePluginApi"): string {
-    const pluginExports = plugins.map(p => {
-      const relPath = relative(this.outputDir, p.filePath);
-      return `export { ${p.className} } from "./${relPath.replace(/\\/g, '/').replace(/\.(ts|js)$/, "")}";`;
-    }).join("\n");
+    // Note: We don't export plugin classes here because they are not distributed with the package
     
     return `
 
@@ -640,8 +731,6 @@ export interface ${baseApiInterface} {
   type?: string;
   loaded?: string;
 }
-
-${pluginExports}
 `;
   }
     

@@ -1,12 +1,21 @@
 import { z } from "zod";
 export { z };
 
+// Import PluginFactory for development
+// This makes the extended PluginFactory with discovered plugins available when developing plugins
+import type {
+  PluginFactory
+} from "../plugin-types/plugin-registry";
+
 // Import base plugin types that support declaration merging
 // These types are re-exported from plugin-registry-base for use in the package
 import type {
-  PluginNames,
   PluginApiType,
-} from "./types/plugin-registry-base";
+} from "../plugin-types/plugin-registry";
+
+// Define PluginNames from the extended PluginFactory
+// This allows autocomplete to work when developing plugins
+export type PluginNames = keyof PluginFactory;
 export type {
   PluginTypeInfo,
   ArkTypeSchemaInfo,
