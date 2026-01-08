@@ -6,6 +6,16 @@ import type {
   PluginNames,
   PluginApiType,
 } from "../plugin-types/plugin-registry";
+export type {
+  PluginTypeInfo,
+  ArkTypeSchemaInfo,
+  PropertyInfo,
+  MethodParamInfo,
+  GeneratorOptions
+} from "./types/generator";
+
+// Re-export Converter
+export { ArkTypeConverter,PluginTypeGenerator, generatePluginTypes  } from "./types/generator";
 
 export enum WorkerMessageType {
   RPC_CALL = "RPC_CALL",
