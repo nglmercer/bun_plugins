@@ -15,9 +15,6 @@
     "outDir": "dist",
     "rootDir": ".",
     "baseUrl": ".",
-    "paths": {
-      "bun_plugins/plugin-types": ["./plugin-types"]
-    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -33,10 +30,7 @@
     "downlevelIteration": true,
     "lib": ["ESNext", "DOM"],
 
-    "types": ["bun"],
-    
-    // Incluir tipos generados por el LSP
-    "typeRoots": ["./node_modules/@types", "./plugin-types"]
+    "types": ["bun"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -1,31 +1,11 @@
 import { z } from "zod";
 export { z };
 
-// Import PluginFactory for development
-// This makes the extended PluginFactory with discovered plugins available when developing plugins
-import type {
-  PluginFactory
-} from "../plugin-types/plugin-registry";
-
-// Import base plugin types that support declaration merging
-// These types are re-exported from plugin-registry-base for use in the package
-import type {
-  PluginApiType,
-} from "../plugin-types/plugin-registry";
-
-// Define PluginNames from the extended PluginFactory
-// This allows autocomplete to work when developing plugins
-export type PluginNames = keyof PluginFactory;
-export type {
-  PluginTypeInfo,
-  ArkTypeSchemaInfo,
-  PropertyInfo,
-  MethodParamInfo,
-  GeneratorOptions
-} from "./types/generator";
 export * from "./types/plugin-registry-base"
-// Re-export Converter
-export { ArkTypeConverter,PluginTypeGenerator, generatePluginTypes  } from "./types/generator";
+
+// Define PluginNames as a string type for flexibility
+export type PluginNames = string;
+export type PluginApiType<T extends string> = any;
 
 export enum WorkerMessageType {
   RPC_CALL = "RPC_CALL",
@@ -173,11 +153,7 @@ export interface PluginContext {
 
   // Access to other plugins' shared APIs
   // Returns the plugin instance asynchronously (supports both main process and worker contexts)
-  // Uses dynamically generated types for full autocomplete
-  // Returns the API type which includes all public methods of the plugin
-  getPlugin<TName extends PluginNames>(
-    name: TName,
-  ): Promise<PluginApiType<TName> | undefined>;
+  getPlugin(name: string): Promise<any | undefined>;
 
   // Scoped Logger
   log: Logger;

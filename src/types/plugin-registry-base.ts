@@ -1,6 +1,6 @@
 /**
  * Base types for plugin registry that can be extended by users using declaration merging.
- * This solves the issue where published libraries can't know about user's plugins.
+ * This solves issue where published libraries can't know about user's plugins.
  */
 
 import type { IPlugin } from "../types";
@@ -20,9 +20,7 @@ export interface BasePluginApi {
 /**
  * Plugin factory map - users can extend this with their own plugins.
  *
- * This interface is extended by:
- * 1. The generator (adds built-in plugins from the library)
- * 2. Users (adds their custom plugins via declaration merging)
+ * This interface can be extended by users using declaration merging.
  *
  * Example of how users extend this:
  * ```typescript
@@ -36,11 +34,14 @@ export interface BasePluginApi {
  *     };
  *   }
  * }
+ * 
+ * // Now you can use context.getPlugin("my-custom-plugin") with full autocomplete
+ * const api = await context.getPlugin("my-custom-plugin");
+ * api.myCustomMethod();
  * ```
  */
 export interface PluginFactory {
-  // This interface is extended by the generator and by users
-  // It starts empty and gets populated via declaration merging
+  // This interface can be extended by users using declaration merging
 }
 
 /**

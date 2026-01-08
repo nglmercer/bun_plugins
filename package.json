@@ -16,19 +16,12 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "files": [
-    "dist",
-    "plugin-types"
+    "dist"
   ],
   "exports": {
     ".": {
       "import": "./dist/src/index.js",
       "types": "./dist/src/index.d.ts"
-    },
-    "./plugin-types": {
-      "types": "./plugin-types/index.d.ts"
-    },
-    "./plugin-types/plugin-registry": {
-      "types": "./plugin-types/plugin-registry.d.ts"
     },
     "./src/types/plugin-registry-base": {
       "types": "./dist/src/types/plugin-registry-base.d.ts"
@@ -38,7 +31,6 @@
     "build": "bun tsc",
     "test": "bun test ./tests",
     "typecheck": "bun tsc --noEmit",
-    "generate-types": "bun run scripts/generate-types.ts",
     "prepublishOnly": "bun run build"
   },
   "devDependencies": {
