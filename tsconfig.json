@@ -13,6 +13,11 @@
     "verbatimModuleSyntax": false,
     "noEmit": false,
     "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "bun_plugins/plugin-types": ["./plugin-types"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -33,6 +38,6 @@
     // Incluir tipos generados por el LSP
     "typeRoots": ["./node_modules/@types", "./plugin-types"]
   },
-  "include": ["src/**/*", "plugins/**/*", "plugin-types/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

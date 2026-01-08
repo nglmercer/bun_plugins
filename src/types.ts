@@ -1,11 +1,12 @@
 import { z } from "zod";
 export { z };
 
-// Import generated plugin types for autocomplete
+// Import base plugin types that support declaration merging
+// These types are re-exported from plugin-registry-base for use in the package
 import type {
   PluginNames,
   PluginApiType,
-} from "../plugin-types/plugin-registry";
+} from "./types/plugin-registry-base";
 export type {
   PluginTypeInfo,
   ArkTypeSchemaInfo,
@@ -13,7 +14,7 @@ export type {
   MethodParamInfo,
   GeneratorOptions
 } from "./types/generator";
-
+export * from "./types/plugin-registry-base"
 // Re-export Converter
 export { ArkTypeConverter,PluginTypeGenerator, generatePluginTypes  } from "./types/generator";
 
@@ -301,3 +302,4 @@ export interface PluginBuilder {
   ): void;
   config: Record<string, any>;
 }
+

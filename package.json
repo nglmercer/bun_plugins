@@ -1,6 +1,6 @@
 {
   "name": "bun_plugins",
-  "version": "1.2.1",
+  "version": "1.2.4",
   "description": "A powerful and secure plugin system for Bun applications",
   "author": "memelser <nglmercer@gmail.com>",
   "repository": {
@@ -16,12 +16,22 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "plugin-types"
   ],
   "exports": {
     ".": {
       "import": "./dist/src/index.js",
       "types": "./dist/src/index.d.ts"
+    },
+    "./plugin-types": {
+      "types": "./plugin-types/index.d.ts"
+    },
+    "./plugin-types/plugin-registry": {
+      "types": "./plugin-types/plugin-registry.d.ts"
+    },
+    "./src/types/plugin-registry-base": {
+      "types": "./dist/src/types/plugin-registry-base.d.ts"
     }
   },
   "scripts": {

@@ -17,3 +17,17 @@ export { ArkTypeConverter } from "./arktype_converter";
 
 // Re-export PluginTypeGenerator
 export { PluginTypeGenerator, generatePluginTypes } from "./plugin_generator";
+
+// Re-export base plugin registry types
+export type {
+  BasePluginApi,
+  PluginNames,
+  PluginApiType,
+  PluginClassType,
+  GetPluginApi,
+  GetPluginClass,
+  IsValidPlugin,
+  PluginFromFactory,
+  PluginInstanceType,
+  PluginFactory
+} from "./plugin-registry-base";
