@@ -184,69 +184,125 @@ export class ConsumerPlugin implements IPlugin {
 
 ## 🎯 Type Safety & Autocompletion
 
-The plugin system provides **multiple ways** to achieve type safety and autocompletion:
+The plugin system provides **full type safety and autocompletion** for inter-plugin communication using declaration merging.
 
-### 📝 Declaration Merging (Recommended)
+### 📚 Complete Guide
 
-Extend the `PluginFactory` interface to enable full autocompletion for your plugins:
+For detailed documentation on the type system, see [`docs/types-guide.md`](docs/types-guide.md).
+
+### 🚀 Quick Start
+
+#### Step 1: Create a types file
+
+Create a `.d.ts` file in your project (e.g., `plugins/types.d.ts`):
 
 ```typescript
-// Create a file: types/plugins.d.ts
+import type { BasePluginApi } from "bun_plugins/src/types/plugin-registry-base";
+
+// Define the API interface for your plugin
+export interface MathPluginApi extends BasePluginApi {
+  add(a: number, b: number): number;
+  multiply(a: number, b: number): number;
+}
+
+// Extend the PluginFactory with your plugin
 declare module "bun_plugins" {
   export interface PluginFactory {
-    "my-plugin": {
-      name: "my-plugin";
+    "math-plugin": {
+      name: "math-plugin";
       version: "1.0.0";
-      class: MyPlugin;
-      api: MyPluginApi;
+      class: any;
+      api: MathPluginApi;
     };
   }
 }
 ```
 
-**Benefits:**
-- ✅ Full autocompletion in your IDE
-- ✅ Type-safe plugin access
-- ✅ No runtime overhead
-- ✅ Works with TypeScript's declaration merging
-
-### 🔹 Type Assertions
-
-Use generic type assertions when you need specific types:
+#### Step 2: Register the API in your plugin
 
 ```typescript
-// Without type assertion (returns any)
-const api = await context.getPlugin("my-plugin");
+import { Plugin, PluginContext } from "bun_plugins";
 
-// With type assertion (returns MyPluginApi)
-const api = await context.getPlugin<MyPluginApi>("my-plugin");
-```
+export class MathPlugin extends Plugin {
+  name = "math-plugin";
+  version = "1.0.0";
 
-**Benefits:**
-- ✅ No need for declaration files
-- ✅ Explicit type control
-- ⚠️ Requires manual type specification
+  override onLoad(context: PluginContext) {
+    // Register the API for other plugins to use
+    context.registerApi({
+      add: this.add.bind(this),
+      multiply: this.multiply.bind(this)
+    });
+  }
 
-### 🎓 Combining Both Approaches
-
-For the best experience, use **declaration merging** for plugins you control, and **type assertions** for third-party plugins:
-
-```typescript
-// 1. Extend PluginFactory for your plugins (types/plugins.d.ts)
-declare module "bun_plugins" {
-  export interface PluginFactory {
-    "my-plugin": { name: "my-plugin"; version: "1.0.0"; class: MyPlugin; api: MyPluginApi; };
+  add(a: number, b: number): number {
+    return a + b;
+  }
+  
+  multiply(a: number, b: number): number {
+    return a * b;
   }
 }
-
-// 2. Use without type assertion (autocompletion works!)
-const myApi = await context.getPlugin("my-plugin");
-
-// 3. Use type assertion for third-party plugins
-const thirdPartyApi = await context.getPlugin<ThirdPartyApi>("third-party-plugin");
 ```
 
-See [`examples/types-extension-example.d.ts`](examples/types-extension-example.d.ts) for a complete example.
+#### Step 3: Use with full autocompletion
+
+```typescript
+import { definePlugin } from "bun_plugins";
+
+export default definePlugin({
+  name: "my-app",
+  version: "1.0.0",
+
+  async onLoad(context) {
+    // ✅ Full autocompletion and type safety!
+    const mathPlugin = await context.getPlugin('math-plugin');
+    
+    if (mathPlugin) {
+      const result = mathPlugin.add(1, 2); // ✅ Autocompletion works
+      context.log.info(`Result: ${result}`);
+      
+      // TypeScript will show errors for non-existent methods
+      // mathPlugin.nonExistentMethod(); // ❌ Error!
+    }
+  }
+});
+```
+
+### ✨ Benefits
+
+- 🎯 **Full Autocompletion**: Your IDE shows all available methods
+- 🔒 **Type Safety**: TypeScript catches errors at compile time
+- 📖 **Self-Documenting**: Interfaces serve as API documentation
+- 🔄 **Refactor-Friendly**: Safe method renaming and refactoring
+- 🌐 **Works with External Plugins**: Extend types for npm packages too
+
+### 📖 Examples
+
+- [`plugins/types.d.ts`](plugins/types.d.ts) - Complete example for this project
+- [`plugins/TypedExamplePlugin.ts`](plugins/TypedExamplePlugin.ts) - Plugin using typed access
+- [`examples/types-extension-example.d.ts`](examples/types-extension-example.d.ts) - Standalone example
+
+### 🔧 TypeScript Configuration
+
+Ensure your `tsconfig.json` includes the types file:
+
+```json
+{
+  "include": [
+    "src/**/*",
+    "plugins/**/*",
+    "**/*.d.ts"
+  ]
+}
+```
+
+### 💡 Tips
+
+1. **Match names exactly**: The plugin name in `PluginFactory` must match `plugin.name`
+2. **Register APIs**: Always use `context.registerApi()` to expose your plugin's API
+3. **Extend BasePluginApi**: Your API interfaces should extend `BasePluginApi` for consistency
+4. **External plugins**: You can extend types for third-party plugins the same way
 
 ---
 

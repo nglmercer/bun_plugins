@@ -315,9 +315,14 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                         else if (method === RPCMethod.StorageReload) {
                              await storage.reload();
                              result = true;
+                         }
+                        else if (method === RPCMethod.ManagerRegisterApi) {
+                            const [api] = args;
+                            this.registerApi(pluginName, api);
+                            result = true;
                         }
-                       
-                       worker.postMessage({ id, result });
+                        
+                        worker.postMessage({ id, result });
                    } catch (e) {
                         const error = errorParser(e, `RPC Error in plugin ${pluginName}`);
                         worker.postMessage({ id, error: error.message });

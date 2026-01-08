@@ -147,7 +147,12 @@ async function run() {
 
         // Create Proxy Context
         const contextProxy: PluginContext = {
-            manager: {} as IPluginManager, 
+            manager: {} as IPluginManager,
+            registerApi: (api: any) => {
+                // In worker mode, API registration is handled via RPC to main thread
+                // This is a placeholder - actual implementation would need to communicate with host
+                rpc(RPCMethod.ManagerRegisterApi, api);
+            },
             get config() {
                 // Return a proxy that can potentially be async or just fetch once and update?
                 // For now, since config needs to be sync, we keep a local copy and update it.

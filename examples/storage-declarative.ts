@@ -194,7 +194,7 @@ const createCrudPlugin = () => createPlugin({
         const current = await storage.get<Todo[]>("todos", []) ?? [];
         const index = current.findIndex(t => t.id === id);
         if (index !== -1) {
-          current[index] = { ...current[index], ...updates };
+          current[index] = { ...current[index], ...updates } as Todo;
           await storage.set("todos", current);
           return current[index];
         }

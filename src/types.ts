@@ -35,6 +35,7 @@ export enum RPCMethod {
   EventsOn = "events:on",
   HooksRegister = "hooks:register",
   ManagerGetPlugin = "manager:getPlugin",
+  ManagerRegisterApi = "manager:registerApi",
   Log = "log",
   NetworkFetch = "network:fetch",
   PermissionCheck = "perm:check",

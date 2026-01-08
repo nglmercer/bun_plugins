@@ -81,7 +81,10 @@ export function createPluginContext(
       // Try to get the registered API first
       const api = manager.getPluginApi(name);
       if (api) return api as PluginApiType<TName>;
-      // Fallback to the plugin itself - use unknown as intermediate to avoid type error
+      // Fallback to the plugin itself
+      // Note: This is an intentional type assertion. When no API is registered,
+      // we return the plugin instance itself. Users should register APIs via
+      // context.registerApi() for proper type safety.
       return p as unknown as PluginApiType<TName>;
     },
     registerApi: (api: any) => {
