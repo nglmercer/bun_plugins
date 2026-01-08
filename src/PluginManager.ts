@@ -511,7 +511,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
               if (validation.valid) {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
               } else {
-                 const errorMsg = (validation as any).error;
+                 const errorMsg = validation.error;
                  logger.getLogger("PluginManager").warn(`Skipping invalid plugin item in ${entry.name}: ${errorMsg}`);
               }
             }

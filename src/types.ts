@@ -1,4 +1,6 @@
 import { z } from "zod";
+export { z };
+
 export enum WorkerMessageType {
     RPC_CALL = 'RPC_CALL',
     HOOK_CALL = 'HOOK_CALL',
@@ -113,6 +115,9 @@ export interface IPluginManager {
   off<K extends keyof AppEvents>(eventName: K & string, listener: (payload: AppEvents[K]) => void): this;
 }
 
+// Plugin name type for autocomplete
+export type PluginNames = string;
+
 export interface PluginContext {
   // Legacy/Direct event methods
   emit<K extends keyof AppEvents>(event: K, payload: AppEvents[K]): void;
@@ -129,8 +134,8 @@ export interface PluginContext {
   manager: IPluginManager;
   
   // Access to other plugins' shared APIs
-  getPlugin<TName extends keyof PluginTypeRegistry>(name: TName): PluginTypeRegistry[TName] | undefined;
-  getPlugin(name: string): unknown | undefined;
+  // Returns the plugin instance asynchronously (required for worker contexts)
+  getPlugin<TName extends PluginNames>(name: TName): Promise<IPlugin | undefined>;
 
   // Scoped Logger
   log: Logger;

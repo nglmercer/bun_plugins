@@ -9,7 +9,7 @@ import {
     HookOrder,
     HookType
 } from "../types";
-import type { BunPlugin } from "bun";
+import type { BunPlugin, Loader } from "bun";
 import { logger } from "../logger";
 
 export class HooksManager {
@@ -150,7 +150,7 @@ export class HooksManager {
                      if (res && res.contents !== undefined) {
                           return {
                               contents: res.contents,
-                              loader: res.loader as any
+                              loader: res.loader as Loader
                           };
                      }
                      return undefined;

@@ -44,7 +44,7 @@ export function createPluginContext(
             }
         },
 
-        getPlugin: (<TName extends string>(name: TName) => {
+        getPlugin: (async <TName extends string>(name: TName) => {
             const p = manager.getPlugin(name);
             if (!p) return undefined;
             
