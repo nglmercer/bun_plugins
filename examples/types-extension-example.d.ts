@@ -1,97 +1,66 @@
 /**
- * Ejemplo de cómo extender los tipos de bun_plugins para obtener autocompletado
+ * Ejemplo de cómo extender los tipos de plugins en tu proyecto
  * 
- * Este archivo demuestra cómo usar declaration merging para que el LSP
- * pueda inferir los tipos de tus plugins automáticamente.
- * 
- * Coloca este archivo en la raíz de tu proyecto (o en una carpeta types/)
- * y asegúrate de que esté incluido en tu tsconfig.json.
+ * Crea este archivo en tu proyecto (ej: src/types/plugins.d.ts o en la raíz como plugins.d.ts)
+ * y TypeScript extenderá automáticamente los tipos de la librería bun_plugins.
  */
 
-/**
- * Extiende la interfaz PluginFactory para incluir tus plugins personalizados.
- * 
- * Esto permite que cuando uses:
- * - `context.getPlugin("mi-plugin")` - Retorna any
- * - `context.getPlugin<MiPluginApi>("mi-plugin")` - Retorna MiPluginApi
- * 
- * El LSP inferirá automáticamente el tipo de retorno cuando uses declaration merging.
- */
+import type { BasePluginApi } from "bun_plugins/src/types/plugin-registry-base";
+
+// Define las interfaces de API para tus plugins
+export interface MathPluginApi extends BasePluginApi {
+  add(a: number, b: number): number;
+  multiply(a: number, b: number): number;
+  divide(a: number, b: number): number;
+  subtract(a: number, b: number): number;
+}
+
+export interface TextPluginApi extends BasePluginApi {
+  toUpperCase(text: string): string;
+  toLowerCase(text: string): string;
+  reverse(text: string): string;
+}
+
+export interface ActionRegistryApi extends BasePluginApi {
+  registerAction(name: string, handler: Function): void;
+  executeAction(name: string, ...args: any[]): any;
+  listActions(): string[];
+}
+
+// Extiende el PluginFactory de bun_plugins con tus plugins
 declare module "bun_plugins" {
   export interface PluginFactory {
-    /**
-     * Agrega tu plugin aquí. El nombre debe coincidir con la propiedad `name` de tu plugin.
-     * 
-     * Ejemplo:
-     * ```typescript
-     * "mi-plugin": {
-     *   name: "mi-plugin";
-     *   version: "1.0.0";
-     *   class: MiPlugin;
-     *   api: MiPluginApi;
-     * };
-     * ```
-     */
-    // "mi-plugin": {
-    //   name: "mi-plugin";
-    //   version: "1.0.0";
-    //   class: MiPlugin;
-    //   api: MiPluginApi;
-    // };
+    "math-plugin": {
+      name: "math-plugin";
+      version: "1.0.0";
+      class: MathPluginApi; // La clase del plugin
+      api: MathPluginApi;
+    };
+    "text-plugin": {
+      name: "text-plugin";
+      version: "1.0.0";
+      class: TextPluginApi;
+      api: TextPluginApi;
+    };
+    "action-registry": {
+      name: "action-registry";
+      version: "1.0.0";
+      class: ActionRegistryApi;
+      api: ActionRegistryApi;
+    };
   }
 }
 
-/**
- * Si tu plugin tiene una interfaz API personalizada, puedes extenderla aquí.
- * 
- * Ejemplo:
- * ```typescript
- * declare module "bun_plugins" {
- *   export interface MiPluginApi {
- *     miMetodoPersonalizado(): void;
- *   }
- * }
- * ```
- */
-// declare module "bun_plugins" {
-//   export interface MiPluginApi {
-//     miMetodoPersonalizado(): void;
-//   }
-// }
+// Ahora puedes usar context.getPlugin() con autocompletado completo:
+/*
+const mathPlugin = await context.getPlugin('math-plugin');
+if (mathPlugin) {
+  mathPlugin.add(1, 2); // ✅ Autocompletado y type safety
+  mathPlugin.multiply(3, 4); // ✅ Autocompletado y type safety
+}
 
-/**
- * Ejemplo de cómo usar los tipos extendidos en tu código:
- * 
- * ## Opción 1: Sin type assertion (retorna any)
- * ```typescript
- * import { PluginManager, PluginContext } from "bun_plugins";
- * 
- * // El LSP inferirá que `api` es de tipo `any`
- * const api = await context.getPlugin("mi-plugin");
- * 
- * // No hay autocompletado de métodos específicos del plugin
- * ```
- * 
- * ## Opción 2: Con type assertion (recomendado)
- * ```typescript
- * import { PluginManager, PluginContext } from "bun_plugins";
- * 
- * // El LSP inferirá que `api` es de tipo `MiPluginApi`
- * const api = await context.getPlugin<MiPluginApi>("mi-plugin");
- * 
- * // Autocompletado funcionará:
- * api.miMetodoPersonalizado();
- * ```
- * 
- * ## Opción 3: Con declaration merging (mejor experiencia)
- * ```typescript
- * import { PluginManager, PluginContext } from "bun_plugins";
- * 
- * // Si has extendido PluginFactory en este archivo, el LSP inferirá
- * // automáticamente el tipo correcto sin necesidad de type assertion:
- * const api = await context.getPlugin("mi-plugin");
- * 
- * // Autocompletado funcionará porque el LSP sabe que "mi-plugin" existe en PluginFactory
- * api.miMetodoPersonalizado();
- * ```
- */
+const textPlugin = await context.getPlugin('text-plugin');
+if (textPlugin) {
+  textPlugin.toUpperCase('hello'); // ✅ Autocompletado y type safety
+}
+*/

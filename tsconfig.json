@@ -32,6 +32,6 @@
 
     "types": ["bun"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "plugins/**/*", "examples/**/*", "**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

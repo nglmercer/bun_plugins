@@ -1,6 +1,6 @@
 {
   "name": "bun_plugins",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A powerful and secure plugin system for Bun applications",
   "author": "memelser <nglmercer@gmail.com>",
   "repository": {

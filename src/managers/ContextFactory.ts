@@ -12,6 +12,7 @@ import {
   checkPermission as checkGeneralPermission,
 } from "../utils/security";
 import { logger } from "../logger";
+import type { PluginApiType } from "../types/plugin-registry-base";
 
 export function createPluginContext(
   manager: PluginManager,
@@ -74,17 +75,15 @@ export function createPluginContext(
       },
     },
 
-    getPlugin: (<TName extends string>(name: TName) => {
-      return Promise.resolve((() => {
-        const p = manager.getPlugin(name);
-        if (!p) return undefined;
-        // Try to get the registered API first
-        const api = manager.getPluginApi(name);
-        if (api) return api;
-        // Fallback to the plugin itself
-        return p;
-      })());
-    }) as PluginContext["getPlugin"],
+    getPlugin: async <TName extends string>(name: TName): Promise<PluginApiType<TName> | undefined> => {
+      const p = manager.getPlugin(name);
+      if (!p) return undefined;
+      // Try to get the registered API first
+      const api = manager.getPluginApi(name);
+      if (api) return api as PluginApiType<TName>;
+      // Fallback to the plugin itself - use unknown as intermediate to avoid type error
+      return p as unknown as PluginApiType<TName>;
+    },
     registerApi: (api: any) => {
       manager.registerApi(plugin.name, api);
     },

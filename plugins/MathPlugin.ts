@@ -12,6 +12,12 @@ export class MathPlugin extends Plugin {
 
   override onLoad(context: PluginContext) {
     context.log.info("Math capabilities ready");
+    
+    // Registrar la API de este plugin para que otros plugins puedan acceder
+    context.registerApi({
+      add: this.add.bind(this),
+      multiply: this.multiply.bind(this)
+    });
   }
 
   // Custom method exposed by this plugin

@@ -157,7 +157,10 @@ export interface PluginContext {
 
   // Access to other plugins' shared APIs
   // Returns the plugin instance asynchronously (supports both main process and worker contexts)
-  getPlugin(name: string): Promise<any | undefined>;
+  // Type-safe plugin retrieval using PluginFactory from plugin-registry-base
+  getPlugin<TName extends string>(
+    name: TName
+  ): Promise<import("./types/plugin-registry-base").PluginApiType<TName> | undefined>;
   
   // Register this plugin's API for other plugins to access
   registerApi(api: any): void;
