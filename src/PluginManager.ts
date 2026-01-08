@@ -16,7 +16,6 @@ import {
     RPCMethod,
     HookType
 } from "./types";
-import { PluginTypeByName, KnownPluginNames, PluginWithSharedApi } from "./pluginRegistry";
 import { validatePlugin } from "./utils/pluginValidator";
 import { JsonPluginStorage } from "./storage/JsonPluginStorage";
 import * as semver from "semver";
@@ -419,7 +418,6 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   }
 
   getPlugin(name: string): IPlugin | undefined;
-  getPlugin<TName extends string>(name: TName): TName extends KnownPluginNames ? PluginTypeByName<TName> : IPlugin | undefined;
   getPlugin<TName extends string>(name: TName): IPlugin | undefined {
     return this.plugins.get(name);
   }

@@ -6,6 +6,8 @@ export default definePlugin({
     version: "1.0.0",
 
     async onLoad(context) {
+        // Validar datos del plugin con ArkType
+
         // As tts is no longer in context, we use the singleton from the example lib
         context.log.info("EdgeTTS Provider registered via plugin");
         
@@ -19,12 +21,12 @@ export default definePlugin({
 
         // Using getSharedApi() is recommended for better encapsulation:
         const mathApi = mathPlugin.getSharedApi();
-        const result = mathApi.add(1, 2);
-        context.log.info(`Math result: ${result}`);
+        const mathResult = mathApi.add(1, 2);
+        context.log.info(`Math result: ${mathResult}`);
         
         // Or use direct methods on the plugin instance:
-        const result2 = mathPlugin.multiply(3, 4);
-        context.log.info(`Multiplication result: ${result2}`);
+        const multiplyResult = mathPlugin.multiply(3, 4);
+        context.log.info(`Multiplication result: ${multiplyResult}`);
     },
     
     onUnload() {}

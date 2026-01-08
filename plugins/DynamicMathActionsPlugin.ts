@@ -5,9 +5,8 @@
 
 import { definePlugin } from "../src";
 import { Plugin, PluginContext } from "../src";
-import { PluginWithSharedApi } from "../src/pluginRegistry";
 
-export class MathPlugin extends Plugin implements PluginWithSharedApi<any> {
+export class MathPlugin extends Plugin {
   name = "dynamic-math-actions";
   version = "1.0.0";
 

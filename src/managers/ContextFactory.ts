@@ -3,7 +3,6 @@ import type { PluginContext, IPlugin, AppEvents, EventCallback } from "../types"
 import type { PluginManager } from "../PluginManager";
 import type { ResourceManager } from "./ResourceManager";
 import { type IPluginStorage } from "../types";
-import { PluginTypeByName, KnownPluginNames } from "../pluginRegistry";
 import { checkNetworkPermission, checkPermission as checkGeneralPermission } from "../utils/security";
 import { logger } from "../logger";
 

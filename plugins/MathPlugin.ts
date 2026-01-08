@@ -1,5 +1,4 @@
 import { Plugin, PluginContext } from "../src";
-import { PluginWithSharedApi } from "../src/pluginRegistry";
 
 // Tipo de la API que expone este plugin
 export interface MathPluginApi {
@@ -7,7 +6,7 @@ export interface MathPluginApi {
   multiply(a: number, b: number): number;
 }
 
-export class MathPlugin extends Plugin implements PluginWithSharedApi<MathPluginApi> {
+export class MathPlugin extends Plugin {
   name = "math-plugin";
   version = "0.5.0";
 
