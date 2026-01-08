@@ -188,7 +188,7 @@ interface PluginContext {
   };
 
   // Access to other plugins
-  getPlugin(name: string): unknown | undefined;
+  getPlugin(name: string): Promise<unknown | undefined>;
 
   // Observability
   log: Console; // Namespaced wrapper

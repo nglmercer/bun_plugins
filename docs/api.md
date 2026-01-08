@@ -65,4 +65,4 @@ Provided to `onLoad`.
 - `env`: Read-only access to environment variables.
 - `createWorker(url, options)`: Create auto-managed workers.
 - `setTimeout / setInterval / clearTimeout / clearInterval`: Auto-managed timers.
-- `getPlugin(name)`: Access the shared API of another plugin.
+- `getPlugin(name)`: Access the shared API of another plugin (returns Promise).

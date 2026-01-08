@@ -69,7 +69,7 @@ export const createActionPlugin = (def: ActionPluginDefinition): IPlugin => {
     ...def,
     onLoad: async (context: PluginContext) => {
       // Register with central registry
-      const centralRegistry = context.getPlugin(def.registryName) as ActionRegistry;
+      const centralRegistry = await context.getPlugin(def.registryName as any) as ActionRegistry;
       if (centralRegistry) {
         // Register action categories
         def.actionCategories?.forEach(category => category.register(centralRegistry));

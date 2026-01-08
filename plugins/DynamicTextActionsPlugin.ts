@@ -13,14 +13,14 @@ export class DynamicTextActionsPlugin implements IPlugin {
     "action-registry": "1.0.0"
   };
 
-  onLoad(context: PluginContext) {
-    this.registerActions(context);
+  async onLoad(context: PluginContext) {
+    await this.registerActions(context);
   }
 
-  private registerActions(context: PluginContext) {
+  private async registerActions(context: PluginContext) {
     try {
       // Obtener el ActionRegistry del contexto compartido
-      const actionRegistry = context.getPlugin("action-registry") as any;
+      const actionRegistry = await context.getPlugin("action-registry") as any;
       
       if (actionRegistry) {
         // Registrar acciones de texto

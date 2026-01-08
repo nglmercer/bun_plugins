@@ -174,7 +174,7 @@ export class ProviderPlugin implements IPlugin {
 export class ConsumerPlugin implements IPlugin {
   name = "app-logic";
   async onLoad(context: PluginContext) {
-    const db = context.getPlugin("db-provider");
+    const db = await context.getPlugin("db-provider");
     const result = db.query("SELECT *");
   }
 }

@@ -12,14 +12,14 @@ export class DynamicJSActionsPlugin {
     };
   }
 
-  onLoad(context) {
-    this.registerActions(context);
+  async onLoad(context) {
+    await this.registerActions(context);
   }
 
-  registerActions(context) {
+  async registerActions(context) {
     try {
       // Obtener el ActionRegistry del contexto compartido
-      const actionRegistry = context.getPlugin("action-registry");
+      const actionRegistry = await context.getPlugin("action-registry");
       
       if (actionRegistry) {
         // Registrar acciones de JavaScript

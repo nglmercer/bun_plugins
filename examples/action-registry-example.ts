@@ -66,8 +66,8 @@ export class MathActionsPlugin implements IPlugin {
     "action-registry": "1.0.0"
   };
 
-  onLoad(context: PluginContext) {
-    const actionRegistry = context.getPlugin("action-registry") as any;
+  async onLoad(context: PluginContext) {
+    const actionRegistry = await context.getPlugin("action-registry") as any;
     
     if (actionRegistry) {
       actionRegistry.registerAction("sum", (a: number, b: number) => a + b);
@@ -89,8 +89,8 @@ export class TextActionsPlugin implements IPlugin {
     "action-registry": "1.0.0"
   };
 
-  onLoad(context: PluginContext) {
-    const actionRegistry = context.getPlugin("action-registry") as any;
+  async onLoad(context: PluginContext) {
+    const actionRegistry = await context.getPlugin("action-registry") as any;
     
     if (actionRegistry) {
       actionRegistry.registerAction("uppercase", (text: string) => text.toUpperCase());

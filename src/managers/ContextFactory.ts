@@ -75,20 +75,22 @@ export function createPluginContext(
     },
 
     getPlugin: (<TName extends string>(name: TName) => {
-      const p = manager.getPlugin(name);
-      if (!p) return undefined;
+      return Promise.resolve((() => {
+        const p = manager.getPlugin(name);
+        if (!p) return undefined;
 
-      // Si el plugin tiene getApi, retornar la API compartida
-      if (
-        typeof p === "object" &&
-        "getApi" in p &&
-        typeof p.getApi === "function"
-      ) {
-        return p.getApi();
-      }
+        // Si el plugin tiene getApi, retornar la API compartida
+        if (
+          typeof p === "object" &&
+          "getApi" in p &&
+          typeof p.getApi === "function"
+        ) {
+          return p.getApi();
+        }
 
-      // Si es un plugin directo (no API compartida), retornar el plugin completo
-      return p;
+        // Si es un plugin directo (no API compartida), retornar el plugin completo
+        return p;
+      })());
     }) as PluginContext["getPlugin"],
     log: logger.getLogger(plugin.name),
     createWorker: (url, options?) => {

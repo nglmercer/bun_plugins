@@ -162,12 +162,12 @@ export interface PluginContext {
   manager: IPluginManager;
 
   // Access to other plugins' shared APIs
-  // Returns the plugin instance synchronously (for main process contexts)
+  // Returns the plugin instance asynchronously (supports both main process and worker contexts)
   // Uses dynamically generated types for full autocomplete
   // Returns the API type which includes all public methods of the plugin
   getPlugin<TName extends PluginNames>(
     name: TName,
-  ): PluginApiType<TName> | undefined;
+  ): Promise<PluginApiType<TName> | undefined>;
 
   // Scoped Logger
   log: Logger;

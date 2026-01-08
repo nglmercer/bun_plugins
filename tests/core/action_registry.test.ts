@@ -78,22 +78,22 @@ describe("Action Registry Pattern", () => {
     const originalMathOnLoad = MathActionsPlugin.prototype.onLoad;
     const originalTextOnLoad = TextActionsPlugin.prototype.onLoad;
     
-    MathActionsPlugin.prototype.onLoad = function(context: any) {
-      const registry = context.getPlugin("action-registry");
+    MathActionsPlugin.prototype.onLoad = async function(context: any) {
+      const registry = await context.getPlugin("action-registry");
       if (registry) {
         mathPluginAccessedRegistry = true;
       }
       // Call original method
-      originalMathOnLoad.call(this, context);
+      await originalMathOnLoad.call(this, context);
     };
     
-    TextActionsPlugin.prototype.onLoad = function(context: any) {
-      const registry = context.getPlugin("action-registry");
+    TextActionsPlugin.prototype.onLoad = async function(context: any) {
+      const registry = await context.getPlugin("action-registry");
       if (registry) {
         textPluginAccessedRegistry = true;
       }
       // Call original method
-      originalTextOnLoad.call(this, context);
+      await originalTextOnLoad.call(this, context);
     };
     
     try {
