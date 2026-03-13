@@ -28,6 +28,7 @@ import { checkNetworkPermission, checkPermission as checkGeneralPermission } fro
 export class PluginManager extends EventEmitter {
   private plugins: Map<string, IPlugin> = new Map();
   private availablePlugins: Map<string, IPlugin> = new Map();
+  private pluginFiles: Map<string, string> = new Map(); // filePath -> pluginName
   
   // Modules
   private resources: ResourceManager;
@@ -39,6 +40,8 @@ export class PluginManager extends EventEmitter {
   private pluginLoadTimeout: number;
   private workerFactory: (url: string | URL, options?: WorkerOptions) => Worker;
   private workerRunnerPath: string;
+  private hotReloadWatcher: ReturnType<typeof watch> | null = null;
+  private hotReloadTimer: Timer | number | null = null;
   constructor(storageRoot: string = join(process.cwd(), "storage"), options?: { 
     pluginLoadTimeout?: number, 
     workerFactory?: (url: string | URL, options?: WorkerOptions) => Worker,
@@ -98,6 +101,7 @@ export class PluginManager extends EventEmitter {
         } catch (e) {
             const error = errorParser(e, `Error in plugin ${plugin.name}`);
             console.warn(`[SafeMode] Using default config, validation failed. Error: ${error.message}`);
+            config = {}; // Reset to empty config on validation failure to prevent downstream errors
         }
     }
 
@@ -571,19 +575,154 @@ export class PluginManager extends EventEmitter {
       return this.hooksManager.toBunPlugin();
   }
 
-  private hotReloadTimer: Timer | number | null = null;
   enableHotReload(pluginDir: string) {
+      // Close existing watcher if any
+      if (this.hotReloadWatcher) {
+          this.hotReloadWatcher.close();
+      }
+
+      // Initial scan to build file map
+      this.scanAndTrackPlugins(pluginDir);
+
       console.log(`[HotReload] Watching ${pluginDir} for changes...`);
-      watch(pluginDir, { recursive: true }, async (event, filename) => {
+      
+      this.hotReloadWatcher = watch(pluginDir, { recursive: true }, async (event, filename) => {
           if (!filename || (!filename.endsWith(".ts") && !filename.endsWith(".js"))) return;
+          if (filename.endsWith(".d.ts")) return; // Skip type definitions
+          
+          const fullPath = join(pluginDir, filename);
           
           if (this.hotReloadTimer) clearTimeout(this.hotReloadTimer as any);
           
           this.hotReloadTimer = setTimeout(async () => {
-              console.log(`[HotReload] Change detected in ${filename}. Re-scanning plugins...`);
-              await this.loadPluginsFromDirectory(pluginDir);
+              await this.handleFileChange(event as string, fullPath, filename, pluginDir);
           }, 300);
       });
+  }
+
+  private async scanAndTrackPlugins(pluginDir: string): Promise<void> {
+      this.pluginFiles.clear();
+      try {
+          const files = await readdir(pluginDir);
+          for (const file of files) {
+              if ((file.endsWith(".ts") || file.endsWith(".js")) && !file.endsWith(".d.ts")) {
+                  const fullPath = join(pluginDir, file);
+                  try {
+                      const module = await import(fullPath);
+                      for (const key in module) {
+                          const ExportedItem = module[key];
+                          const validation = validatePlugin(ExportedItem);
+                          if (validation.valid) {
+                              this.pluginFiles.set(fullPath, validation.plugin.name);
+                              this.availablePlugins.set(validation.plugin.name, validation.plugin);
+                          }
+                      }
+                  } catch (err) {
+                      console.warn(`[HotReload] Failed to scan ${file}:`, err);
+                  }
+              }
+          }
+      } catch (err) {
+          console.error(`[HotReload] Failed to scan plugin directory:`, err);
+      }
+  }
+
+  private async handleFileChange(event: string, fullPath: string, filename: string, pluginDir?: string): Promise<void> {
+      const exists = existsSync(fullPath);
+      const previousName = this.pluginFiles.get(fullPath);
+
+      if (!exists && previousName) {
+          // File was removed - uninstall plugin
+          console.log(`[HotReload] Plugin file removed: ${filename}. Unloading plugin ${previousName}...`);
+          this.pluginFiles.delete(fullPath);
+          
+          if (this.plugins.has(previousName)) {
+              await this.unregister(previousName);
+              console.log(`[HotReload] Plugin ${previousName} unloaded.`);
+          }
+      } else if (exists && !previousName) {
+          // New file added - install plugin
+          console.log(event, `[HotReload] New plugin file detected: ${filename}. Loading plugin...`);
+          try {
+              const module = await import(fullPath);
+              for (const key in module) {
+                  const ExportedItem = module[key];
+                  const validation = validatePlugin(ExportedItem);
+                  if (validation.valid) {
+                      const plugin = validation.plugin;
+                      this.pluginFiles.set(fullPath, plugin.name);
+                      this.availablePlugins.set(plugin.name, plugin);
+                      
+                      // Check if not disabled and load it
+                      const globalConfigPath = join(this.storageRoot, "plugins.json");
+                      let disabledPlugins: string[] = [];
+                      try {
+                          const file = Bun.file(globalConfigPath);
+                          if (await file.exists()) {
+                              const data = await file.json();
+                              disabledPlugins = data.disabled || [];
+                          }
+                      } catch (e) { /* ignore */ }
+                      
+                      if (!disabledPlugins.includes(plugin.name) && !this.plugins.has(plugin.name)) {
+                          await this.register(plugin);
+                          console.log(`[HotReload] Plugin ${plugin.name} loaded.`);
+                      }
+                  }
+              }
+          } catch (err) {
+              console.error(`[HotReload] Failed to load new plugin ${filename}:`,pluginDir, err);
+          }
+      } else if (exists && previousName) {
+          // File was modified - reload plugin
+          console.log(`[HotReload] Plugin file modified: ${filename}. Reloading plugin ${previousName}...`);
+          try {
+              // Remove from module cache to force reimport
+              delete require.cache[fullPath];
+              
+              // Unload existing plugin
+              if (this.plugins.has(previousName)) {
+                  await this.unregister(previousName);
+              }
+              
+              // Reload the plugin
+              const module = await import(fullPath);
+              for (const key in module) {
+                  const ExportedItem = module[key];
+                  const validation = validatePlugin(ExportedItem);
+                  if (validation.valid) {
+                      const plugin = validation.plugin;
+                      this.availablePlugins.set(plugin.name, plugin);
+                      
+                      // Check if not disabled and load it
+                      const globalConfigPath = join(this.storageRoot, "plugins.json");
+                      let disabledPlugins: string[] = [];
+                      try {
+                          const file = Bun.file(globalConfigPath);
+                          if (await file.exists()) {
+                              const data = await file.json();
+                              disabledPlugins = data.disabled || [];
+                          }
+                      } catch (e) { /* ignore */ }
+                      
+                      if (!disabledPlugins.includes(plugin.name)) {
+                          await this.register(plugin);
+                          console.log(`[HotReload] Plugin ${plugin.name} reloaded.`);
+                      }
+                  }
+              }
+          } catch (err) {
+              console.error(`[HotReload] Failed to reload plugin ${filename}:`, err);
+          }
+      }
+  }
+
+  disableHotReload(): void {
+      if (this.hotReloadWatcher) {
+          this.hotReloadWatcher.close();
+          this.hotReloadWatcher = null;
+          console.log(`[HotReload] File watcher stopped.`);
+      }
   }
 
   getMetrics() {
