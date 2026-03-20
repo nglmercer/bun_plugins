@@ -32,6 +32,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   private availablePlugins: Map<string, IPlugin> = new Map();
   private configs: Map<string, Record<string, any>> = new Map();
   private pluginApis: Map<string, any> = new Map();
+  private pluginFilePaths: Map<string, string> = new Map();
   
   // Modules
   private resources: ResourceManager;
@@ -91,8 +92,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
     logger.getLogger("PluginManager").info(`Loading plugin: ${plugin.name} v${plugin.version}`);
     
-    // 1. Prepare Storage
-    const storage = new JsonPluginStorage(this.storageRoot, plugin.name);
+    // 1. Prepare Storage (singleton)
+    const storage = JsonPluginStorage.getInstance(this.storageRoot, plugin.name);
     
     // 2. Load & Validate Configuration
     let config = plugin.defaultConfig || {};
@@ -196,7 +197,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                return reject(new Error(`Invalid plugin name: ${pluginName}. Name cannot contain path traversal characters.`));
            }
 
-           const storage = new JsonPluginStorage(this.storageRoot, pluginName);
+           const storage = JsonPluginStorage.getInstance(this.storageRoot, pluginName);
            const pendingHooks = new Map<string, { resolve: Function, reject: Function }>();
 
            // Initialize resources
@@ -378,6 +379,9 @@ export class PluginManager extends EventEmitter implements IPluginManager {
                    };
                    this.plugins.set(metadata.name, proxyPlugin);
                    
+                   // Registrar el path del archivo del plugin aislado
+                   this.pluginFilePaths.set(metadata.name, pluginPath);
+                   
                    // Register API if provided in metadata
                    if (metadata.api) {
                        this.registerApi(metadata.name, metadata.api);
@@ -412,7 +416,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
        });
   }
 
-  async unregister(pluginName: string): Promise<void> {
+  async unregister(pluginName: string,clean=false): Promise<void> {
     const plugin = this.plugins.get(pluginName);
     if (!plugin) return;
 
@@ -431,6 +435,9 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         this.resources.cleanup(pluginName, this);
         this.hooksManager.cleanup(pluginName);
         this.unregisterApi(pluginName);
+        if (clean) {
+            this.pluginFilePaths.delete(pluginName);
+        }
         logger.getLogger("PluginManager").info(`Plugin ${pluginName} unloaded.`);
     }
   }
@@ -438,6 +445,22 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   getPlugin(name: string): IPlugin | undefined;
   getPlugin<TName extends string>(name: TName): IPlugin | undefined {
     return this.plugins.get(name);
+  }
+
+  /**
+   * @param pluginName - Plugin name
+   * @returns The absolute path of the plugin file, or undefined if not found
+   */
+  getPluginPath(pluginName: string): string | undefined {
+    return this.pluginFilePaths.get(pluginName);
+  }
+
+  /**
+   * Get all plugin paths
+   * @returns Map with plugin names as keys and their paths as values
+   */
+  getAllPluginPaths(): Map<string, string> {
+    return new Map(this.pluginFilePaths);
   }
 
   getApi<T = any>(name: string): T | undefined {
@@ -448,22 +471,25 @@ export class PluginManager extends EventEmitter implements IPluginManager {
   getPluginConfig(name: string): Record<string, any> {
       return this.configs.get(name) || {};
   }
-
+  setPluginConfig(name:string, config:Record<string, any>): Record<string, any> {
+      this.configs.set(name, config);
+      return this.configs.get(name) || {};
+  }
   listPlugins(): string[] {
     return Array.from(this.plugins.keys());
   }
 
-  // Método para registrar manualmente la API de un plugin
+  // register plugin API
   registerApi(pluginName: string, api: any): void {
     this.pluginApis.set(pluginName, api);
   }
 
-  // Método para obtener la API de un plugin
+  // get plugin API
   getPluginApi(pluginName: string): any | undefined {
     return this.pluginApis.get(pluginName);
   }
 
-  // Método para limpiar la API de un plugin al desregistrarlo
+  // unregister plugin API
   private unregisterApi(pluginName: string): void {
     this.pluginApis.delete(pluginName);
   }
@@ -508,6 +534,8 @@ export class PluginManager extends EventEmitter implements IPluginManager {
 
       const entries = await readdir(directoryPath, { withFileTypes: true });
       this.availablePlugins.clear();
+      // Clear the file paths when reloading the directory
+      this.pluginFilePaths.clear();
 
       for (const entry of entries) {
         let fullPath: string | null = null;
@@ -539,6 +567,9 @@ export class PluginManager extends EventEmitter implements IPluginManager {
               const validation = validatePlugin(ExportedItem);
               if (validation.valid) {
                  this.availablePlugins.set(validation.plugin.name, validation.plugin);
+                 // Registrar la ubicación del archivo del plugin
+                 this.pluginFilePaths.set(validation.plugin.name, fullPath);
+                 logger.getLogger("PluginManager").info(`[PluginManager] Plugin file path registered: ${validation.plugin.name} -> ${fullPath}`);
               } else {
                  const errorMsg = validation.error;
                  logger.getLogger("PluginManager").warn(`Skipping invalid plugin item in ${entry.name}: ${errorMsg}`);
@@ -651,7 +682,7 @@ export class PluginManager extends EventEmitter implements IPluginManager {
         // If the new version has onReload, call it
         if (newPlugin && newPlugin.onReload) {
             // We need a context for onReload as well
-            const storage = new JsonPluginStorage(this.storageRoot, name);
+            const storage = JsonPluginStorage.getInstance(this.storageRoot, name);
             const context = createPluginContext(this, newPlugin, this.resources, storage);
             try {
                 await newPlugin.onReload(context);
